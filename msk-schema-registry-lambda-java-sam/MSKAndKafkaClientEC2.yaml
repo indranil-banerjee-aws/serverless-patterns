@@ -471,6 +471,7 @@ Resources:
             echo "sasl.mechanism=AWS_MSK_IAM" >> client.properties
             echo "sasl.jaas.config=software.amazon.msk.auth.iam.IAMLoginModule required;" >> client.properties
             echo "sasl.client.callback.handler.class=software.amazon.msk.auth.iam.IAMClientCallbackHandler" >> client.properties
+            cp client.properties /home/ec2-user/client.properties
           
             # Install AWS SAM CLI
             cd /home/ec2-user
@@ -499,6 +500,8 @@ Resources:
             echo "echo \"export KAFKA_TOPIC=\$KAFKA_TOPIC\" >> .bash_profile" >> kafka_topic_creator.sh
             echo "#!/bin/bash" > kafka_message_sender.sh
             echo "source /home/ec2-user/.bash_profile" >> kafka_message_sender.sh
+            
+            echo "java -classpath /home/ec2-user/serverless-patterns/msk-schema-registry-lambda-java-sam/msk_with_iam_message_sender_json/target/json-msk-iam-producer-0.0.1-SNAPSHOT.jar msk.iam.producer.JsonKafkaProducer /home/ec2-user/client.properties $KAFKA_TOPIC TestKey01 100" >> kafka_message_sender.sh
             echo "/home/ec2-user/kafka/bin/kafka-console-producer.sh --bootstrap-server \$BOOTSTRAP_BROKERS_IAM --producer.config /home/ec2-user/kafka/bin/client.properties --topic $KAFKA_TOPIC" >> kafka_message_sender.sh
             sudo chmod +x kafka_message_sender.sh
             CLUSTER_NAME="$(echo $MSK_CLUSTER_ARN | cut -d '/' -f2)"
@@ -507,11 +510,13 @@ Resources:
             echo "export CLUSTER_ID=$CLUSTER_ID" >> /home/ec2-user/.bash_profile
             ./kafka_topic_creator.sh > kafka_topic_creator_output.txt
             
+            echo "bootstrap.servers=\$(aws kafka get-bootstrap-brokers --region \$AWS_REGION --cluster-arn \$MSK_CLUSTER_ARN --query 'BootstrapBrokerStringSaslIam' --output text)" >> /home/ec2-user/client.properties
+            
             #Checkout Serverless Patterns from Github
             cd /home/ec2-user
             SERVERLESS_LAND_GITHUB_LOCATION=${serverless_land_github_location}
             git clone $SERVERLESS_LAND_GITHUB_LOCATION
-            cd ./serverless-patterns/msk-lambda-iam-java-sam
+            cd ./serverless-patterns/msk-schema-registry-lambda-java-sam/msk_with_iam_consumer_dynamo_sam
             cp template_original.yaml template.yaml
             sudo chown -R ec2-user .
             source /home/ec2-user/.bash_profile
@@ -519,6 +524,10 @@ Resources:
             sed -i "s/CLUSTER_ID/$CLUSTER_ID/g" template.yaml
             sed -i "s/KAFKA_TOPIC/$KAFKA_TOPIC/g" template.yaml
             sed -i "s/JAVA_VERSION/$JAVA_VERSION/g" template.yaml
+            
+            #Compile code for sender Java program
+            cd /home/ec2-user/serverless-patterns/msk-schema-registry-lambda-java-sam/msk_with_iam_message_sender_json
+            mvn clean install
             
             # Get IP CIDR range for EC2 Instance Connect
             cd /home/ec2-user
@@ -744,6 +753,8 @@ Resources:
             echo "sasl.mechanism=AWS_MSK_IAM" >> client.properties
             echo "sasl.jaas.config=software.amazon.msk.auth.iam.IAMLoginModule required;" >> client.properties
             echo "sasl.client.callback.handler.class=software.amazon.msk.auth.iam.IAMClientCallbackHandler" >> client.properties
+            
+            cp client.properties /home/ec2-user/client.properties
           
             # Install AWS SAM CLI
             cd /home/ec2-user
@@ -772,6 +783,8 @@ Resources:
             echo "echo \"export KAFKA_TOPIC=\$KAFKA_TOPIC\" >> .bash_profile" >> kafka_topic_creator.sh
             echo "#!/bin/bash" > kafka_message_sender.sh
             echo "source /home/ec2-user/.bash_profile" >> kafka_message_sender.sh
+            
+            echo "java -classpath /home/ec2-user/serverless-patterns/msk-schema-registry-lambda-java-sam/msk_with_iam_message_sender_json/target/json-msk-iam-producer-0.0.1-SNAPSHOT.jar msk.iam.producer.JsonKafkaProducer /home/ec2-user/client.properties $KAFKA_TOPIC TestKey01 100" >> kafka_message_sender.sh
             echo "/home/ec2-user/kafka/bin/kafka-console-producer.sh --bootstrap-server \$BOOTSTRAP_BROKERS_IAM --producer.config /home/ec2-user/kafka/bin/client.properties --topic $KAFKA_TOPIC" >> kafka_message_sender.sh
             sudo chmod +x kafka_message_sender.sh
             CLUSTER_NAME="$(echo $MSK_CLUSTER_ARN | cut -d '/' -f2)"
@@ -780,11 +793,13 @@ Resources:
             echo "export CLUSTER_ID=$CLUSTER_ID" >> /home/ec2-user/.bash_profile
             ./kafka_topic_creator.sh > kafka_topic_creator_output.txt
             
+            echo "bootstrap.servers=\$(aws kafka get-bootstrap-brokers --region \$AWS_REGION --cluster-arn \$MSK_CLUSTER_ARN --query 'BootstrapBrokerStringSaslIam' --output text)" >> /home/ec2-user/client.properties
+            
             #Checkout Serverless Patterns from Github
             cd /home/ec2-user
             SERVERLESS_LAND_GITHUB_LOCATION=${serverless_land_github_location}
             git clone $SERVERLESS_LAND_GITHUB_LOCATION
-            cd ./serverless-patterns/msk-lambda-iam-java-sam
+            cd ./serverless-patterns/msk-schema-registry-lambda-java-sam/msk_with_iam_consumer_dynamo_sam
             cp template_original.yaml template.yaml
             sudo chown -R ec2-user .
             source /home/ec2-user/.bash_profile
@@ -792,6 +807,13 @@ Resources:
             sed -i "s/CLUSTER_ID/$CLUSTER_ID/g" template.yaml
             sed -i "s/KAFKA_TOPIC/$KAFKA_TOPIC/g" template.yaml
             sed -i "s/JAVA_VERSION/$JAVA_VERSION/g" template.yaml
+            
+            #Compile code for sender Java program
+            cd /home/ec2-user/serverless-patterns/msk-schema-registry-lambda-java-sam/msk_with_iam_message_sender_json
+            mvn clean install
+            
+            
+            
             
             # Get IP CIDR range for EC2 Instance Connect
             cd /home/ec2-user
