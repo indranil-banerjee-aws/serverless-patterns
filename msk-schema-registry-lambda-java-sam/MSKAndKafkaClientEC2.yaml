@@ -510,7 +510,11 @@ Resources:
             echo "export CLUSTER_ID=$CLUSTER_ID" >> /home/ec2-user/.bash_profile
             ./kafka_topic_creator.sh > kafka_topic_creator_output.txt
             
-            echo "bootstrap.servers=\$(aws kafka get-bootstrap-brokers --region \$AWS_REGION --cluster-arn \$MSK_CLUSTER_ARN --query 'BootstrapBrokerStringSaslIam' --output text)" >> /home/ec2-user/client.properties
+            BOOTSTRAP_SERVERS=$(aws kafka get-bootstrap-brokers --region \$AWS_REGION --cluster-arn \$MSK_CLUSTER_ARN --query 'BootstrapBrokerStringSaslIam' --output text)
+            
+            echo "bootstrap.servers=$BOOTSTRAP_SERVERS"
+            
+            echo "bootstrap.servers=$BOOTSTRAP_SERVERS" >> /home/ec2-user/client.properties
             
             #Checkout Serverless Patterns from Github
             cd /home/ec2-user
@@ -793,7 +797,11 @@ Resources:
             echo "export CLUSTER_ID=$CLUSTER_ID" >> /home/ec2-user/.bash_profile
             ./kafka_topic_creator.sh > kafka_topic_creator_output.txt
             
-            echo "bootstrap.servers=\$(aws kafka get-bootstrap-brokers --region \$AWS_REGION --cluster-arn \$MSK_CLUSTER_ARN --query 'BootstrapBrokerStringSaslIam' --output text)" >> /home/ec2-user/client.properties
+            BOOTSTRAP_SERVERS=$(aws kafka get-bootstrap-brokers --region \$AWS_REGION --cluster-arn \$MSK_CLUSTER_ARN --query 'BootstrapBrokerStringSaslIam' --output text)
+            
+            echo "bootstrap.servers=$BOOTSTRAP_SERVERS"
+            
+            echo "bootstrap.servers=$BOOTSTRAP_SERVERS" >> /home/ec2-user/client.properties
             
             #Checkout Serverless Patterns from Github
             cd /home/ec2-user
@@ -866,6 +874,8 @@ Resources:
         - arn:aws:iam::aws:policy/AWSCertificateManagerPrivateCAFullAccess
         - arn:aws:iam::aws:policy/IAMFullAccess
         - arn:aws:iam::aws:policy/AWSLambda_FullAccess
+        - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
+        - arn:aws:iam::aws:policy/AWSGlueSchemaRegistryFullAccess
       Policies:
         - PolicyName: MSKConfigurationAccess
           PolicyDocument: !Sub '{
