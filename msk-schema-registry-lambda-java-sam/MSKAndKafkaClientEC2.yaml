@@ -1201,6 +1201,40 @@ Resources:
           SecurityGroups:
               - !GetAtt MSKSecurityGroup.GroupId
 
+  MSKGlueRegistry:
+    Type: AWS::Glue::Registry
+    Properties:
+      Name: GlueSchemaRegistryForMSK
+      Description: "Registry for storing schemas related to MSK"
+
+  MSKGlueSchema:
+    Type: AWS::Glue::Schema
+    Properties:
+      Compatibility: BACKWARD
+      DataFormat: AVRO
+      Description: "MSK Messages AVRO Schema"
+      Name: GlueSchemaForMSK
+      Registry: !MSKGlueRegistry
+      SchemaDefinition: |
+        {
+          "type": "record",
+          "name": "Person",
+          "fields": [
+            {"name": "firstname", "type": "string"},
+            {"name": "lastname", "type": "string"},
+            {"name": "company", "type": "string"},
+            {"name": "street", "type": "string"},
+            {"name": "city", "type": "string"},
+            {"name": "county", "type": "string"},
+            {"name": "state", "type": "string"},
+            {"name": "zip", "type": "string"},
+            {"name": "homePhone", "type": "string"},
+            {"name": "cellPhone", "type": "string"},
+            {"name": "email", "type": "string"},
+            {"name": "website", "type": "string"}
+          ]
+        } 
+
 Outputs:
   VPCId: 
     Description: The ID of the VPC created
