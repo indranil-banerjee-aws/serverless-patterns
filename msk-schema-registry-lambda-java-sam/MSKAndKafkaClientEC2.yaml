@@ -31,6 +31,12 @@ Parameters:
   ServerlessLandGithubLocation:
     Type: String
     Default: https://github.com/aws-samples/serverless-patterns/
+  AvroSchemaName:
+    Type: String
+    Default: PersonAvroSchema   
+  GlueSchemaRegistryForMSKName:
+    Type: String
+    Default: GlueSchemaRegistryForMSK
 Conditions:
   CreateProvisionedCluster: !Equals 
     - !Ref EnvType
@@ -510,11 +516,19 @@ Resources:
             echo "export CLUSTER_ID=$CLUSTER_ID" >> /home/ec2-user/.bash_profile
             ./kafka_topic_creator.sh > kafka_topic_creator_output.txt
             
-            BOOTSTRAP_SERVERS=$(aws kafka get-bootstrap-brokers --region \$AWS_REGION --cluster-arn \$MSK_CLUSTER_ARN --query 'BootstrapBrokerStringSaslIam' --output text)
+            source /home/ec2-user/.bash_profile
             
-            echo "bootstrap.servers=$BOOTSTRAP_SERVERS"
+            echo "bootstrap.servers=$BOOTSTRAP_BROKERS_IAM"
             
-            echo "bootstrap.servers=$BOOTSTRAP_SERVERS" >> /home/ec2-user/client.properties
+            echo "bootstrap.servers=$BOOTSTRAP_BROKERS_IAM" >> /home/ec2-user/client.properties
+            
+            GLUE_REGISTRY_NAME=${glue_registry_name}
+            GLUE_AVRO_SCHEMA_NAME=${avro_schema_name}
+            
+            echo "contact.schema.name=$AVRO_SCHEMA_NAME" >> /home/ec2-user/client.properties
+            echo "registry.name=$GLUE_REGISTRY_NAME" >> /home/ec2-user/client.properties
+            echo "aws.region=$AWS_REGION" >> /home/ec2-user/client.properties
+            
             
             #Checkout Serverless Patterns from Github
             cd /home/ec2-user
@@ -528,6 +542,9 @@ Resources:
             sed -i "s/CLUSTER_ID/$CLUSTER_ID/g" template.yaml
             sed -i "s/KAFKA_TOPIC/$KAFKA_TOPIC/g" template.yaml
             sed -i "s/JAVA_VERSION/$JAVA_VERSION/g" template.yaml
+            sed -i "s/GLUE_SCHEMA_REGISTRY_NAME/$GLUE_REGISTRY_NAME/g" template.yaml
+            sed -i "s/AVRO_SCHEMA/$GLUE_AVRO_SCHEMA_NAME/g" template.yaml
+            
             
             #Compile code for sender Java program
             cd /home/ec2-user/serverless-patterns/msk-schema-registry-lambda-java-sam/msk_with_iam_message_sender_json
@@ -554,6 +571,8 @@ Resources:
             serverless_land_github_location: !Ref ServerlessLandGithubLocation
             aws_region: !Ref 'AWS::Region'
             java_version: !Ref JavaVersion
+            glue_registry_name: !Ref GlueSchemaRegistryForMSKName
+            avro_schema_name: !Ref AvroSchemaName
 
   KafkaClientEC2InstanceServerless:
     Condition: CreateServerlessCluster
@@ -788,8 +807,7 @@ Resources:
             echo "#!/bin/bash" > kafka_message_sender.sh
             echo "source /home/ec2-user/.bash_profile" >> kafka_message_sender.sh
             
-            echo "java -classpath /home/ec2-user/serverless-patterns/msk-schema-registry-lambda-java-sam/msk_with_iam_message_sender_json/target/json-msk-iam-producer-0.0.1-SNAPSHOT.jar msk.iam.producer.JsonKafkaProducer /home/ec2-user/client.properties $KAFKA_TOPIC TestKey01 100" >> kafka_message_sender.sh
-            echo "/home/ec2-user/kafka/bin/kafka-console-producer.sh --bootstrap-server \$BOOTSTRAP_BROKERS_IAM --producer.config /home/ec2-user/kafka/bin/client.properties --topic $KAFKA_TOPIC" >> kafka_message_sender.sh
+            echo "java -classpath /home/ec2-user/serverless-patterns/msk-schema-registry-lambda-java-sam/msk_with_iam_message_sender_avro/target/avro-msk-iam-producer-0.0.1-SNAPSHOT.jar msk.iam.producer.AvroKafkaProducer /home/ec2-user/client.properties $KAFKA_TOPIC TestKey01 100" >> kafka_message_sender.sh
             sudo chmod +x kafka_message_sender.sh
             CLUSTER_NAME="$(echo $MSK_CLUSTER_ARN | cut -d '/' -f2)"
             CLUSTER_ID="$(echo $MSK_CLUSTER_ARN | cut -d '/' -f3)"
@@ -797,11 +815,18 @@ Resources:
             echo "export CLUSTER_ID=$CLUSTER_ID" >> /home/ec2-user/.bash_profile
             ./kafka_topic_creator.sh > kafka_topic_creator_output.txt
             
-            BOOTSTRAP_SERVERS=$(aws kafka get-bootstrap-brokers --region \$AWS_REGION --cluster-arn \$MSK_CLUSTER_ARN --query 'BootstrapBrokerStringSaslIam' --output text)
+            source /home/ec2-user/.bash_profile
             
-            echo "bootstrap.servers=$BOOTSTRAP_SERVERS"
+            echo "bootstrap.servers=$BOOTSTRAP_BROKERS_IAM"
             
-            echo "bootstrap.servers=$BOOTSTRAP_SERVERS" >> /home/ec2-user/client.properties
+            echo "bootstrap.servers=$BOOTSTRAP_BROKERS_IAM" >> /home/ec2-user/client.properties
+            
+            GLUE_REGISTRY_NAME=${glue_registry_name}
+            GLUE_AVRO_SCHEMA_NAME=${avro_schema_name}
+            
+            echo "contact.schema.name=$AVRO_SCHEMA_NAME" >> /home/ec2-user/client.properties
+            echo "registry.name=$GLUE_REGISTRY_NAME" >> /home/ec2-user/client.properties
+            echo "aws.region=$AWS_REGION" >> /home/ec2-user/client.properties
             
             #Checkout Serverless Patterns from Github
             cd /home/ec2-user
@@ -815,6 +840,8 @@ Resources:
             sed -i "s/CLUSTER_ID/$CLUSTER_ID/g" template.yaml
             sed -i "s/KAFKA_TOPIC/$KAFKA_TOPIC/g" template.yaml
             sed -i "s/JAVA_VERSION/$JAVA_VERSION/g" template.yaml
+            sed -i "s/GLUE_SCHEMA_REGISTRY_NAME/$GLUE_REGISTRY_NAME/g" template.yaml
+            sed -i "s/AVRO_SCHEMA/$GLUE_AVRO_SCHEMA_NAME/g" template.yaml
             
             #Compile code for sender Java program
             cd /home/ec2-user/serverless-patterns/msk-schema-registry-lambda-java-sam/msk_with_iam_message_sender_json
@@ -844,6 +871,9 @@ Resources:
             serverless_land_github_location: !Ref ServerlessLandGithubLocation
             aws_region: !Ref 'AWS::Region'
             java_version: !Ref JavaVersion
+            glue_registry_name: !Ref GlueSchemaRegistryForMSKName
+            avro_schema_name: !Ref AvroSchemaName
+            
 
   EC2InstanceEndpoint:
     Type: AWS::EC2::InstanceConnectEndpoint
@@ -876,6 +906,7 @@ Resources:
         - arn:aws:iam::aws:policy/AWSLambda_FullAccess
         - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
         - arn:aws:iam::aws:policy/AWSGlueSchemaRegistryFullAccess
+        - arn:aws:iam::aws:policy/AmazonSQSFullAccess
       Policies:
         - PolicyName: MSKConfigurationAccess
           PolicyDocument: !Sub '{
@@ -1204,7 +1235,7 @@ Resources:
   MSKGlueRegistry:
     Type: AWS::Glue::Registry
     Properties:
-      Name: GlueSchemaRegistryForMSK
+      Name: !Ref GlueSchemaRegistryForMSKName
       Description: "Registry for storing schemas related to MSK"
 
   MSKGlueSchema:
@@ -1213,8 +1244,9 @@ Resources:
       Compatibility: BACKWARD
       DataFormat: AVRO
       Description: "MSK Messages AVRO Schema"
-      Name: GlueSchemaForMSK
-      Registry: !MSKGlueRegistry
+      Name: !Ref AvroSchemaName
+      Registry: 
+        Arn: !GetAtt MSKGlueRegistry.Arn
       SchemaDefinition: |
         {
           "type": "record",

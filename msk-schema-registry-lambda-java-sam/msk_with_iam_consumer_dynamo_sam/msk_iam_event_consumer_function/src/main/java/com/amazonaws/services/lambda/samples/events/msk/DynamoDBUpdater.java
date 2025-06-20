@@ -37,24 +37,24 @@ public class DynamoDBUpdater {
 	
 	public PutItemOutcome insertIntoDynamoDB(KafkaMessage message) {
 		Item item = new Item();
-		item.withPrimaryKey("MessageKey", message.getDecodedKey());
+		item.withPrimaryKey("MessageKey", message.key);
 		item.withString("Topic", message.getTopic());
 		item.withInt("Partition", message.getPartition());
 		item.withLong("Offset", message.getOffset());
 		item.withLong("Timestamp", message.getTimestamp());
 		item.withString("TimeStampType", message.getTimestampType());
-		item.withString("Firstname", message.getPerson().getFirstname());
-		item.withString("Lastname", message.getPerson().getLastname());
-		item.withString("Company", message.getPerson().getCompany());
-		item.withString("Address_Street", message.getPerson().getStreet());
-		item.withString("City", message.getPerson().getCity());
-		item.withString("County", message.getPerson().getCounty());
-		item.withString("State", message.getPerson().getState());
-		item.withString("Zip", message.getPerson().getZip());
-		item.withString("Home_Phone", message.getPerson().getHomePhone());
-		item.withString("Cell_Phone", message.getPerson().getCellPhone());
-		item.withString("Email", message.getPerson().getEmail());
-		item.withString("Website", message.getPerson().getWebsite());
+		item.withString("Firstname", message.getValue().getFirstname().toString());
+		item.withString("Lastname", message.getValue().getLastname().toString());
+		item.withString("Company", message.getValue().getCompany().toString());
+		item.withString("Address_Street", message.getValue().getStreet().toString());
+		item.withString("City", message.getValue().getCity().toString());
+		item.withString("County", message.getValue().getCounty().toString());
+		item.withString("State", message.getValue().getState().toString());
+		item.withString("Zip", message.getValue().getZip().toString());
+		item.withString("Home_Phone", message.getValue().getHomePhone().toString());
+		item.withString("Cell_Phone", message.getValue().getCellPhone().toString());
+		item.withString("Email", message.getValue().getEmail().toString());
+		item.withString("Website", message.getValue().getWebsite().toString());
 		return dynamoTable.putItem(item);
 	}
 	

@@ -10,10 +10,8 @@ public class KafkaMessage {
 	long timestamp;
 	String timestampType;
 	String key;
-	String value;
-	String decodedKey;
-	String decodedValue;
-	Person person;
+	Person value;
+
 	/**
 	 * 
 	 */
@@ -32,7 +30,7 @@ public class KafkaMessage {
 	 * @param decodedValue
 	 * @param person
 	 */
-	public KafkaMessage(String topic, int partition, long offset, long timestamp, String timestampType, String key, String value,
+	public KafkaMessage(String topic, int partition, long offset, long timestamp, String timestampType, String key, Person value,
 			String decodedKey, String decodedValue) {
 		super();
 		this.topic = topic;
@@ -42,10 +40,7 @@ public class KafkaMessage {
 		this.timestampType = timestampType;
 		this.key = key;
 		this.value = value;
-		this.decodedKey = decodedKey;
-		this.decodedValue = decodedValue;
-		Gson gson = new Gson();
-		this.person = gson.fromJson(decodedValue, Person.class);
+		
 	}
 	/**
 	 * @return the topic
@@ -122,58 +117,18 @@ public class KafkaMessage {
 	/**
 	 * @return the value
 	 */
-	public String getValue() {
+	public Person getValue() {
 		return value;
 	}
 	/**
 	 * @param value the value to set
 	 */
-	public void setValue(String value) {
+	public void setValue(Person value) {
 		this.value = value;
-	}
-	/**
-	 * @return the decodedKey
-	 */
-	public String getDecodedKey() {
-		return decodedKey;
-	}
-	/**
-	 * @param decodedKey the decodedKey to set
-	 */
-	public void setDecodedKey(String decodedKey) {
-		this.decodedKey = decodedKey;
-	}
-	/**
-	 * @return the decodedValue
-	 */
-	public String getDecodedValue() {
-		return decodedValue;
-	}
-	/**
-	 * @param decodedValue the decodedValue to set
-	 */
-	public void setDecodedValue(String decodedValue) {
-		this.decodedValue = decodedValue;
-		Gson gson = new Gson();
-		this.person = gson.fromJson(decodedValue, Person.class);
-	}
-	
-	/**
-	 * @return the person
-	 */
-	public Person getPerson() {
-		return person;
-	}
-	/**
-	 * @param person the person to set
-	 */
-	public void setPerson(Person person) {
-		this.person = person;
 	}
 	@Override
 	public int hashCode() {
-		return Objects.hash(decodedKey, decodedValue, key, offset, partition, person, timestamp, timestampType, topic,
-				value);
+		return Objects.hash(key, offset, partition, timestamp, timestampType, topic, value);
 	}
 	@Override
 	public boolean equals(Object obj) {
@@ -184,18 +139,18 @@ public class KafkaMessage {
 		if (getClass() != obj.getClass())
 			return false;
 		KafkaMessage other = (KafkaMessage) obj;
-		return Objects.equals(decodedKey, other.decodedKey) && Objects.equals(decodedValue, other.decodedValue)
-				&& Objects.equals(key, other.key) && offset == other.offset && partition == other.partition
-				&& Objects.equals(person, other.person) && timestamp == other.timestamp
-				&& Objects.equals(timestampType, other.timestampType) && Objects.equals(topic, other.topic)
-				&& Objects.equals(value, other.value);
+		return Objects.equals(key, other.key) && offset == other.offset && partition == other.partition
+				&& timestamp == other.timestamp && Objects.equals(timestampType, other.timestampType)
+				&& Objects.equals(topic, other.topic) && Objects.equals(value, other.value);
 	}
 	@Override
 	public String toString() {
 		return "KafkaMessage [topic=" + topic + ", partition=" + partition + ", offset=" + offset + ", timestamp="
-				+ timestamp + ", timestampType=" + timestampType + ", key=" + key + ", value=" + value + ", decodedKey="
-				+ decodedKey + ", decodedValue=" + decodedValue + ", person=" + person.toString() + "]";
+				+ timestamp + ", timestampType=" + timestampType + ", key=" + key + ", value=" + value + "]";
 	}
+
+
+
 	
 	
 }

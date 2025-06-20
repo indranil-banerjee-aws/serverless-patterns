@@ -1,0 +1,48 @@
+Create a client.properties file in the local Kafka bin directory in Cloud9
+
+security.protocol=SASL_SSL
+sasl.mechanism=AWS_MSK_IAM
+sasl.jaas.config=software.amazon.msk.auth.iam.IAMLoginModule required;
+sasl.client.callback.handler.class=software.amazon.msk.auth.iam.IAMClientCallbackHandler
+
+
+
+/home/ec2-user/environment/kafka_2.12-3.4.0/bin/kafka-console-producer.sh --broker-list b-1.mskworkshopcluster.c50sxk.c13.kafka.us-west-2.amazonaws.com:9098,b-2.mskworkshopcluster.c50sxk.c13.kafka.us-west-2.amazonaws.com:9098,b-3.mskworkshopcluster.c50sxk.c13.kafka.us-west-2.amazonaws.com:9098 --producer.config client.properties --topic MskIamSimpleTestTopic
+
+
+
+/home/ec2-user/environment/kafka_2.12-3.4.0/bin/kafka-console-consumer.sh --bootstrap-server b-1.mskworkshopcluster.c50sxk.c13.kafka.us-west-2.amazonaws.com:9098,b-2.mskworkshopcluster.c50sxk.c13.kafka.us-west-2.amazonaws.com:9098,b-3.mskworkshopcluster.c50sxk.c13.kafka.us-west-2.amazonaws.com:9098 --consumer.config client.properties --topic MskIamSimpleTestTopic
+
+
+
+<path-to-your-kafka-installation>/bin/kafka-topics.sh 
+--bootstrap-server $BS
+--command-config client.properties 
+--topic msk-sample-topic 
+--describe | head -n1
+
+
+/home/ec2-user/environment/kafka_2.12-3.4.0/bin/kafka-topics.sh --bootstrap-server b-1.mskworkshopcluster.c50sxk.c13.kafka.us-west-2.amazonaws.com:9098,b-2.mskworkshopcluster.c50sxk.c13.kafka.us-west-2.amazonaws.com:9098,b-3.mskworkshopcluster.c50sxk.c13.kafka.us-west-2.amazonaws.com:9098 --command-config client.properties --topic MskIamSimpleTestTopic --describe
+
+
+/home/ec2-user/environment/kafka_2.12-3.4.0/bin/kafka-topics.sh --bootstrap-server b-1.mskworkshopcluster.c50sxk.c13.kafka.us-west-2.amazonaws.com:9098,b-2.mskworkshopcluster.c50sxk.c13.kafka.us-west-2.amazonaws.com:9098,b-3.mskworkshopcluster.c50sxk.c13.kafka.us-west-2.amazonaws.com:9098 --command-config client.properties --alter --topic MskIamSimpleTestTopic --partitions 3
+
+
+/home/ec2-user/environment/kafka_2.12-3.4.0/bin/kafka-topics.sh --create --bootstrap-server b-1.mskworkshopcluster.c50sxk.c13.kafka.us-west-2.amazonaws.com:9098,b-2.mskworkshopcluster.c50sxk.c13.kafka.us-west-2.amazonaws.com:9098,b-3.mskworkshopcluster.c50sxk.c13.kafka.us-west-2.amazonaws.com:9098 --command-config client.properties --replication-factor 3 --partitions 3 --topic MskIamSimpleTestTopic
+
+/home/ec2-user/environment/kafka_2.12-3.4.0/bin/kafka-topics.sh --create --bootstrap-server b-1.mskworkshopcluster.c50sxk.c13.kafka.us-west-2.amazonaws.com:9098,b-2.mskworkshopcluster.c50sxk.c13.kafka.us-west-2.amazonaws.com:9098,b-3.mskworkshopcluster.c50sxk.c13.kafka.us-west-2.amazonaws.com:9098 --command-config client.properties --replication-factor 3 --partitions 3 --topic MskIamJsonTestTopic
+
+
+/home/ec2-user/environment/kafka_2.12-3.4.0/bin/kafka-console-consumer.sh --bootstrap-server b-1.mskworkshopcluster.c50sxk.c13.kafka.us-west-2.amazonaws.com:9098,b-2.mskworkshopcluster.c50sxk.c13.kafka.us-west-2.amazonaws.com:9098,b-3.mskworkshopcluster.c50sxk.c13.kafka.us-west-2.amazonaws.com:9098 --consumer.config client.properties --topic MskIamSimpleTestTopic
+
+
+/home/ec2-user/environment/kafka_2.12-3.4.0/bin/kafka-topics.sh --create --bootstrap-server localhost:9092 --replication-factor 1 --partitions 3 --topic MskIamSimpleTestTopic
+
+/home/ec2-user/environment/kafka_2.12-3.4.0/bin/kafka-topics.sh --create --bootstrap-server localhost:9092 --replication-factor 1 --partitions 3 --topic MskIamJsonTestTopic
+
+
+java -classpath /home/ec2-user/environment/JavaExamples/kafka_message_sender/target/simple-kafka-producer-0.0.1-SNAPSHOT.jar kafka.producer.SimpleKafkaProducer /home/ec2-user/environment/kafkaProperties MskIamSimpleTestTopic HelloKey HelloValue 100
+
+
+java -classpath /home/ec2-user/environment/JavaExamples/msk_with_iam_message_sender_json/target/json-msk-iam-producer-0.0.1-SNAPSHOT.jar msk.iam.producer.JsonKafkaProducer /home/ec2-user/environment/kafkaProperties MskIamJsonTestTopic TestKey01 100
+
