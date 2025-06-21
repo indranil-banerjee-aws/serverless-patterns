@@ -505,11 +505,13 @@ Resources:
             echo "echo \"export BOOTSTRAP_BROKERS_IAM=\$BOOTSTRAP_BROKERS_IAM\" >> .bash_profile" >> kafka_topic_creator.sh
             echo "echo \"export KAFKA_TOPIC=\$KAFKA_TOPIC\" >> .bash_profile" >> kafka_topic_creator.sh
             echo "#!/bin/bash" > kafka_message_sender.sh
+            echo "# Run this script by passing a string and an integer less than or equal to 500" >> kafka_message_sender.sh
             echo "source /home/ec2-user/.bash_profile" >> kafka_message_sender.sh
             
-            echo "java -classpath /home/ec2-user/serverless-patterns/msk-schema-registry-lambda-java-sam/msk_with_iam_message_sender_json/target/json-msk-iam-producer-0.0.1-SNAPSHOT.jar msk.iam.producer.JsonKafkaProducer /home/ec2-user/client.properties $KAFKA_TOPIC TestKey01 100" >> kafka_message_sender.sh
-            echo "/home/ec2-user/kafka/bin/kafka-console-producer.sh --bootstrap-server \$BOOTSTRAP_BROKERS_IAM --producer.config /home/ec2-user/kafka/bin/client.properties --topic $KAFKA_TOPIC" >> kafka_message_sender.sh
+            echo "java -classpath /home/ec2-user/serverless-patterns/msk-schema-registry-lambda-java-sam/msk_with_iam_message_sender_avro/target/avro-msk-iam-producer-0.0.1-SNAPSHOT.jar msk.iam.producer.AvroKafkaProducer /home/ec2-user/client.properties $KAFKA_TOPIC \$1 \$2" >> kafka_message_sender.sh
+            
             sudo chmod +x kafka_message_sender.sh
+            
             CLUSTER_NAME="$(echo $MSK_CLUSTER_ARN | cut -d '/' -f2)"
             CLUSTER_ID="$(echo $MSK_CLUSTER_ARN | cut -d '/' -f3)"
             echo "export CLUSTER_NAME=$CLUSTER_NAME" >> /home/ec2-user/.bash_profile
@@ -525,7 +527,7 @@ Resources:
             GLUE_REGISTRY_NAME=${glue_registry_name}
             GLUE_AVRO_SCHEMA_NAME=${avro_schema_name}
             
-            echo "contact.schema.name=$AVRO_SCHEMA_NAME" >> /home/ec2-user/client.properties
+            echo "contact.schema.name=$GLUE_AVRO_SCHEMA_NAME" >> /home/ec2-user/client.properties
             echo "registry.name=$GLUE_REGISTRY_NAME" >> /home/ec2-user/client.properties
             echo "aws.region=$AWS_REGION" >> /home/ec2-user/client.properties
             
@@ -547,7 +549,8 @@ Resources:
             
             
             #Compile code for sender Java program
-            cd /home/ec2-user/serverless-patterns/msk-schema-registry-lambda-java-sam/msk_with_iam_message_sender_json
+            cd /home/ec2-user/serverless-patterns/msk-schema-registry-lambda-java-sam/msk_with_iam_message_sender_avro
+            sudo chown -R ec2-user .
             mvn clean install
             
             # Get IP CIDR range for EC2 Instance Connect
@@ -804,11 +807,15 @@ Resources:
             echo "echo \"export AWS_REGION=\$AWS_REGION\" >> .bash_profile" >> kafka_topic_creator.sh
             echo "echo \"export BOOTSTRAP_BROKERS_IAM=\$BOOTSTRAP_BROKERS_IAM\" >> .bash_profile" >> kafka_topic_creator.sh
             echo "echo \"export KAFKA_TOPIC=\$KAFKA_TOPIC\" >> .bash_profile" >> kafka_topic_creator.sh
+            
             echo "#!/bin/bash" > kafka_message_sender.sh
+            echo "# Run this script by passing a string and an integer less than or equal to 500" >> kafka_message_sender.sh
             echo "source /home/ec2-user/.bash_profile" >> kafka_message_sender.sh
             
-            echo "java -classpath /home/ec2-user/serverless-patterns/msk-schema-registry-lambda-java-sam/msk_with_iam_message_sender_avro/target/avro-msk-iam-producer-0.0.1-SNAPSHOT.jar msk.iam.producer.AvroKafkaProducer /home/ec2-user/client.properties $KAFKA_TOPIC TestKey01 100" >> kafka_message_sender.sh
+            echo "java -classpath /home/ec2-user/serverless-patterns/msk-schema-registry-lambda-java-sam/msk_with_iam_message_sender_avro/target/avro-msk-iam-producer-0.0.1-SNAPSHOT.jar msk.iam.producer.AvroKafkaProducer /home/ec2-user/client.properties $KAFKA_TOPIC \$1 \$2" >> kafka_message_sender.sh
+            
             sudo chmod +x kafka_message_sender.sh
+            
             CLUSTER_NAME="$(echo $MSK_CLUSTER_ARN | cut -d '/' -f2)"
             CLUSTER_ID="$(echo $MSK_CLUSTER_ARN | cut -d '/' -f3)"
             echo "export CLUSTER_NAME=$CLUSTER_NAME" >> /home/ec2-user/.bash_profile
@@ -824,7 +831,7 @@ Resources:
             GLUE_REGISTRY_NAME=${glue_registry_name}
             GLUE_AVRO_SCHEMA_NAME=${avro_schema_name}
             
-            echo "contact.schema.name=$AVRO_SCHEMA_NAME" >> /home/ec2-user/client.properties
+            echo "contact.schema.name=$GLUE_AVRO_SCHEMA_NAME" >> /home/ec2-user/client.properties
             echo "registry.name=$GLUE_REGISTRY_NAME" >> /home/ec2-user/client.properties
             echo "aws.region=$AWS_REGION" >> /home/ec2-user/client.properties
             
@@ -843,8 +850,10 @@ Resources:
             sed -i "s/GLUE_SCHEMA_REGISTRY_NAME/$GLUE_REGISTRY_NAME/g" template.yaml
             sed -i "s/AVRO_SCHEMA/$GLUE_AVRO_SCHEMA_NAME/g" template.yaml
             
+            
             #Compile code for sender Java program
-            cd /home/ec2-user/serverless-patterns/msk-schema-registry-lambda-java-sam/msk_with_iam_message_sender_json
+            cd /home/ec2-user/serverless-patterns/msk-schema-registry-lambda-java-sam/msk_with_iam_message_sender_avro
+            sudo chown -R ec2-user .
             mvn clean install
             
             
@@ -906,8 +915,20 @@ Resources:
         - arn:aws:iam::aws:policy/AWSLambda_FullAccess
         - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
         - arn:aws:iam::aws:policy/AWSGlueSchemaRegistryFullAccess
-        - arn:aws:iam::aws:policy/AmazonSQSFullAccess
       Policies:
+        - PolicyName: SQSAccessPolicy
+          PolicyDocument: !Sub '{
+              "Version" : "2012-10-17",
+              "Statement" : [
+                  {
+                    "Action" : [
+                    "sqs:*"
+                    ],
+              "Effect" : "Allow",
+              "Resource" : "*"
+                }
+              ]
+            }'
         - PolicyName: MSKConfigurationAccess
           PolicyDocument: !Sub '{
               "Version": "2012-10-17",

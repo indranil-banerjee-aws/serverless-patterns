@@ -107,7 +107,13 @@ Resources:
           Resource: 
           - !Sub "arn:aws:glue:${AWS::Region}:${AWS::AccountId}:registry/*"
           - !Sub "arn:aws:glue:${AWS::Region}:${AWS::AccountId}:schema/*/*"
-          
+  
+        - Sid: SQSPermissionsPolicy
+          Effect: Allow
+          Action:
+          - sqs:SendMessage
+          Resource: !GetAtt ConsumerDLQ.Arn
+  
   MSKDynamoDBTable:
     Type: AWS::Serverless::SimpleTable
     Properties:
