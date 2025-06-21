@@ -67,7 +67,7 @@ public class KafkaProducerHelper {
         props.put("sasl.mechanism", "AWS_MSK_IAM");
         props.put("sasl.jaas.config", "software.amazon.msk.auth.iam.IAMLoginModule required;");
         props.put("sasl.client.callback.handler.class", "software.amazon.msk.auth.iam.IAMClientCallbackHandler");
-        
+               
         // Configure AWS Glue Schema Registry
         props.put(AWSSchemaRegistryConstants.AWS_REGION, region);
         props.put(AWSSchemaRegistryConstants.REGISTRY_NAME, registryName);
