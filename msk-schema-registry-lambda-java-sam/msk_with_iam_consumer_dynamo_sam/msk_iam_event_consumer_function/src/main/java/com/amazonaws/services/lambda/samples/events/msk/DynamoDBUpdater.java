@@ -35,27 +35,27 @@ public class DynamoDBUpdater {
 		this.dynamoTable = dynamoDB.getTable(this.dynamoDBTableName);
 	}
 	
-	public PutItemOutcome insertIntoDynamoDB(KafkaMessage message) {
-		Item item = new Item();
-		item.withPrimaryKey("MessageKey", message.key);
-		item.withString("Topic", message.getTopic());
-		item.withInt("Partition", message.getPartition());
-		item.withLong("Offset", message.getOffset());
-		item.withLong("Timestamp", message.getTimestamp());
-		item.withString("TimeStampType", message.getTimestampType());
-		item.withString("Firstname", message.getValue().getFirstname().toString());
-		item.withString("Lastname", message.getValue().getLastname().toString());
-		item.withString("Company", message.getValue().getCompany().toString());
-		item.withString("Address_Street", message.getValue().getStreet().toString());
-		item.withString("City", message.getValue().getCity().toString());
-		item.withString("County", message.getValue().getCounty().toString());
-		item.withString("State", message.getValue().getState().toString());
-		item.withString("Zip", message.getValue().getZip().toString());
-		item.withString("Home_Phone", message.getValue().getHomePhone().toString());
-		item.withString("Cell_Phone", message.getValue().getCellPhone().toString());
-		item.withString("Email", message.getValue().getEmail().toString());
-		item.withString("Website", message.getValue().getWebsite().toString());
-		return dynamoTable.putItem(item);
-	}
+//	public PutItemOutcome insertIntoDynamoDB(KafkaMessage message) {
+//		Item item = new Item();
+//		item.withPrimaryKey("MessageKey", message.key);
+//		item.withString("Topic", message.getTopic());
+//		item.withInt("Partition", message.getPartition());
+//		item.withLong("Offset", message.getOffset());
+//		item.withLong("Timestamp", message.getTimestamp());
+//		item.withString("TimeStampType", message.getTimestampType());
+//		item.withString("Firstname", message.getValue().getFirstname().toString());
+//		item.withString("Lastname", message.getValue().getLastname().toString());
+//		item.withString("Company", message.getValue().getCompany().toString());
+//		item.withString("Address_Street", message.getValue().getStreet().toString());
+//		item.withString("City", message.getValue().getCity().toString());
+//		item.withString("County", message.getValue().getCounty().toString());
+//		item.withString("State", message.getValue().getState().toString());
+//		item.withString("Zip", message.getValue().getZip().toString());
+//		item.withString("Home_Phone", message.getValue().getHomePhone().toString());
+//		item.withString("Cell_Phone", message.getValue().getCellPhone().toString());
+//		item.withString("Email", message.getValue().getEmail().toString());
+//		item.withString("Website", message.getValue().getWebsite().toString());
+//		return dynamoTable.putItem(item);
+//	}
 	
 }
