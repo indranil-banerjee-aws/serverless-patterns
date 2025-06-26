@@ -14,27 +14,26 @@ public class AvroKafkaHandler implements RequestHandler<ConsumerRecords<String, 
     private static final Logger LOGGER = LoggerFactory.getLogger(AvroKafkaHandler.class);
 
     @Override
-    @Logging(logEvent = true)
-    @Deserialization(type = DeserializationType.KAFKA_AVRO)
+    @Logging
+    @Deserialization(type = DeserializationType.KAFKA_JSON)
     public String handleRequest(ConsumerRecords<String, Person> records, Context context) {
-        LOGGER.info("=== AvroKafkaHandler called ===");
-        LOGGER.info("Event object: {}", records);
-        LOGGER.info("Number of records: {}", records.count());
-        
         for (ConsumerRecord<String, Person> record : records) {
-            LOGGER.info("Processing record - Topic: {}, Partition: {}, Offset: {}", 
-                       record.topic(), record.partition(), record.offset());
-            LOGGER.info("Record key: {}", record.key());
-            LOGGER.info("Record value: {}", record.value());
-            
-            if (record.value() != null) {
-                Person person = record.value();
-                LOGGER.info("Person details - firstName: {}, zip: {}", 
-                           person.getFirstname(), person.getZip());
+            // Key remains as string (if present)
+            String key = record.key();
+            if (key != null) {
+                LOGGER.info("Message key: {}", key);
+            } else {
+            	LOGGER.error("Key is null");
+            }
+
+            // Value is deserialized as JSON
+            Person person = record.value();
+            if (null != person) {
+            	LOGGER.info("Firstname {} - Email: ${}", person.getFirstname(), person.getEmail());
+            } else {
+            	LOGGER.error("Person Object is null");
             }
         }
-        
-        LOGGER.info("=== AvroKafkaHandler completed ===");
         return "OK";
     }
 }
