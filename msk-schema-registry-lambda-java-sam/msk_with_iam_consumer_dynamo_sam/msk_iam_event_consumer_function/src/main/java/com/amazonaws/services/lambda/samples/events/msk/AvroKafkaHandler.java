@@ -15,7 +15,7 @@ public class AvroKafkaHandler implements RequestHandler<ConsumerRecords<String, 
 
     @Override
     @Logging
-    @Deserialization(type = DeserializationType.KAFKA_JSON)
+    @Deserialization(type = DeserializationType.KAFKA_AVRO)
     public String handleRequest(ConsumerRecords<String, Person> records, Context context) {
         for (ConsumerRecord<String, Person> record : records) {
             // Key remains as string (if present)
