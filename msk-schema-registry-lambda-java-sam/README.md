@@ -99,9 +99,9 @@ Once the lambda function is deployed, send some Kafka messages on the topic that
 
 For your convenience, a Java program has been created on the EC2 machine that was provisioned using Cloudformation.
 
-cd /home/ec2-user/serverless-patterns/msk-schema-registry-lambda-java-sam/msk_with_iam_message_sender_json
+/home/ec2-user/serverless-patterns/msk-schema-registry-lambda-java-sam/msk_with_iam_message_sender_json
 
-You should see a script called kafka_message_sender.sh. Run that script and you should be able to send a new Kafka message in every line as shown below
+To run this Java program, we have created a script called kafka_message_sender.sh in the /home/ec2-user folder. Run that script and you should be able to send a new Kafka message in every line as shown below
 
 Execute the script by passing two parameters, a random string and an integer between 1 and 500
 
