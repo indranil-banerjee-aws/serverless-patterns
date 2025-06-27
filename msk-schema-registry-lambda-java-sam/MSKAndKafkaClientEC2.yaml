@@ -30,7 +30,7 @@ Parameters:
     Default: MskIamJavaLambdaTopic
   ServerlessLandGithubLocation:
     Type: String
-    Default: https://github.com/aws-samples/serverless-patterns/
+    Default: https://github.com/indranil-banerjee-aws/serverless-patterns/
   AvroSchemaName:
     Type: String
     Default: PersonAvroSchema   
@@ -1272,6 +1272,7 @@ Resources:
         {
           "type": "record",
           "name": "Person",
+          "namespace": "com.amazonaws.services.lambda.samples.events.msk",
           "fields": [
             {"name": "firstname", "type": "string"},
             {"name": "lastname", "type": "string"},

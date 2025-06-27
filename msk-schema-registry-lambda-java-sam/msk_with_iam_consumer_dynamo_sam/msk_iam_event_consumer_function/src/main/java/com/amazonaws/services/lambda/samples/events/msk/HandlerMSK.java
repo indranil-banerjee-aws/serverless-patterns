@@ -42,9 +42,6 @@ public class HandlerMSK implements RequestHandler<KafkaEvent, String>{
 		String response = new String("200 OK");
 		this.listOfMessages = new ArrayList<KafkaMessage>();
 		
-		// Counters for zip code patterns
-		int zip1000Count = 0;
-		int zip2000Count = 0;
 		//Incoming KafkaEvent object has a property called records that is a map
 		//Each key in the map is a combination of a topic and a partition
 		Map<String, List<KafkaEventRecord>> record=event.getRecords();
@@ -149,15 +146,6 @@ public class HandlerMSK implements RequestHandler<KafkaEvent, String>{
 					        
 					        String readableString = readableContent.toString();
 					        logger.log("Readable content extracted from AVRO: " + readableString);
-					        
-					        // Check for zip code patterns
-					        if (readableString.contains("1000")) {
-					            logger.log("FOUND ZIP CODE STARTING WITH 1000");
-					        }
-					        if (readableString.contains("2000")) {
-					            logger.log("FOUND ZIP CODE STARTING WITH 2000");
-					        }
-					        
 					        logger.log("=== END AVRO MESSAGE DETAILS ===");
 					    } catch (Exception e) {
 					        logger.log("ERROR converting bytes to string: " + e.getMessage());
@@ -216,32 +204,10 @@ public class HandlerMSK implements RequestHandler<KafkaEvent, String>{
 				logger.log("Partition: " + thisMessage.getPartition());
 				logger.log("Offset: " + thisMessage.getOffset());
 				logger.log("Key: " + thisMessage.getDecodedKey());
-				
-				// Check for zip code patterns in the decoded value
-				String decodedValueStr = thisMessage.getDecodedValue();
-				if (decodedValueStr != null) {
-				    if (decodedValueStr.contains("1000")) {
-				        logger.log("ZIP CODE: Found 1000 pattern in message");
-				        zip1000Count++;
-				    }
-				    if (decodedValueStr.contains("2000")) {
-				        logger.log("ZIP CODE: Found 2000 pattern in message");
-				        zip2000Count++;
-				    }
-				}
-				
 				logger.log("=== END MESSAGE SUMMARY ===");
 			}
 		}
-		logger.log("All Messages in this batch = " + gson.toJson(listOfMessages));
-		
-		// Log summary of zip code distribution
-		logger.log("========== ZIP CODE DISTRIBUTION SUMMARY ==========");
-		logger.log("Messages with zip code containing 1000: " + zip1000Count);
-		logger.log("Messages with zip code containing 2000: " + zip2000Count);
-		logger.log("Other messages: " + (listOfMessages.size() - zip1000Count - zip2000Count));
-		logger.log("====================================================");
-		
+		logger.log("All Messages in this batch = " + gson.toJson(listOfMessages));		
 		logger.log("========== LAMBDA FUNCTION COMPLETED ==========");
 		return response;
 	}
