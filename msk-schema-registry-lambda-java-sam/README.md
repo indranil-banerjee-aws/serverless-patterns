@@ -1,8 +1,7 @@
-# msk-lambda-iam-java-sam
-# Java AWS Lambda Kafka consumer with IAM auth, using AWS SAM
+# msk-schema-registry-lambda-java-sam
+# Java AWS Lambda Kafka consumer of messages in AVRO format validated against a schema defined in a Glue Schema Registry and with IAM auth, using AWS SAM
 
-This pattern is an example of a Lambda function that consumes messages from an Amazon Managed Streaming for Kafka (Amazon MSK) topic, where the MSK Cluster has been configured to use IAM authentication.
-
+This pattern is an example of a Lambda function that consumes messages from an Amazon Managed Streaming for Kafka (Amazon MSK) topic, where the MSK Cluster has been configured to use IAM authentication and the MSK Event Listener in the Lambda function is configured to validated AVRO messages against an AVRO schema defined in an AWS Glue Schema Registry
 This project contains source code and supporting files for a serverless application that you can deploy with the SAM CLI. It includes the following files and folders.
 
 - msk_with_iam_consumer_dynamo_sam/msk_iam_event_consumer_function/src/main/java - Code for the application's Lambda function.
@@ -46,7 +45,7 @@ We have also cloned the Github repository for serverless-patterns on the EC2 mac
     ```
 Change directory to the pattern directory:
     ```
-    cd serverless-patterns/msk-lambda-iam-java-sam
+    cd serverless-patterns/msk-schema-registry-lambda-java-sam/msk_with_iam_consumer_dynamo_sam
     ```
 
 ## Use the SAM CLI to build and test locally
@@ -59,78 +58,6 @@ sam build
 
 The SAM CLI installs dependencies defined in `kafka_event_consumer_function/pom.xml`, creates a deployment package, and saves it in the `.aws-sam/build` folder.
 
-Test a single function by invoking it directly with a test event. An event is a JSON document that represents the input that the function receives from the event source. Test events are included in the `events` folder in this project.
-
-Run functions locally and invoke them with the `sam local invoke` command.
-
-```bash
-sam local invoke --event events/event.json
-```
-
-You should see a response such as the below:
-
-```
-***** Begin sam local invoke response *****
-
-Invoking com.amazonaws.services.lambda.samples.events.msk.HandlerMSK::handleRequest (java11)                                                           
-Local image is up-to-date                                                                                                                              
-Using local image: public.ecr.aws/lambda/java:11-rapid-x86_64.                                                                                         
-                                                                                                                                                       
-Mounting /home/ec2-user/serverless-patterns/msk-lambda-iam-java-sam/.aws-sam/build/LambdaMSKConsumerJavaFunction as /var/task:ro,delegated, inside     
-runtime container                                                                                                                                      
-START RequestId: 4484bb15-6749-4307-92d1-8ba2221e2218 Version: $LATEST
-START RequestId: 4484bb15-6749-4307-92d1-8ba2221e2218 Version: $LATEST
-Picked up JAVA_TOOL_OPTIONS: -XX:+TieredCompilation -XX:TieredStopAtLevel=1
-Received this message from Kafka - KafkaMessage [topic=myTopic, partition=0, timestamp=1678072110111, timestampType=CREATE_TIME, key=null, value=Zg==, decodedKey=null, decodedValue=f, headers=[]]Message in JSON format : {
-  "topic": "myTopic",
-  "partition": 0,
-  "offset": 250,
-  "timestamp": 1678072110111,
-  "timestampType": "CREATE_TIME",
-  "value": "Zg\u003d\u003d",
-  "decodedKey": "null",
-  "decodedValue": "f",
-  "headers": []
-}Received this message from Kafka - KafkaMessage [topic=myTopic, partition=0, timestamp=1678072111086, timestampType=CREATE_TIME, key=null, value=Zw==, decodedKey=null, decodedValue=g, headers=[]]Message in JSON format : {
-  "topic": "myTopic",
-  "partition": 0,
-  "offset": 251,
-  "timestamp": 1678072111086,
-  "timestampType": "CREATE_TIME",
-  "value": "Zw\u003d\u003d",
-  "decodedKey": "null",
-  "decodedValue": "g",
-  "headers": []
-}All Messages in this batch = [
-  {
-    "topic": "myTopic",
-    "partition": 0,
-    "offset": 250,
-    "timestamp": 1678072110111,
-    "timestampType": "CREATE_TIME",
-    "value": "Zg\u003d\u003d",
-    "decodedKey": "null",
-    "decodedValue": "f",
-    "headers": []
-  },
-  {
-    "topic": "myTopic",
-    "partition": 0,
-    "offset": 251,
-    "timestamp": 1678072111086,
-    "timestampType": "CREATE_TIME",
-    "value": "Zw\u003d\u003d",
-    "decodedKey": "null",
-    "decodedValue": "g",
-    "headers": []
-  }
-]END RequestId: fc96203d-e0c0-4c30-b332-d16708b25d3e
-REPORT RequestId: fc96203d-e0c0-4c30-b332-d16708b25d3e  Init Duration: 0.06 ms  Duration: 474.31 ms     Billed Duration: 475 ms Memory Size: 512 MB   Max Memory Used: 512 MB
-"200 OK"
-
-***** End sam local invoke response *****
-```
-
 
 ## Deploy the sample application
 
@@ -138,7 +65,7 @@ REPORT RequestId: fc96203d-e0c0-4c30-b332-d16708b25d3e  Init Duration: 0.06 ms  
 To deploy your application for the first time, run the following in your shell:
 
 ```bash
-sam deploy --capabilities CAPABILITY_IAM --no-confirm-changeset --no-disable-rollback --region $AWS_REGION --stack-name msk-lambda-iam-java-sam --guided
+sam deploy --capabilities CAPABILITY_IAM --no-confirm-changeset --no-disable-rollback --region $AWS_REGION --stack-name msk-schema-registry-lambda-java-sam --guided
 ```
 
 The sam deploy command will package and deploy your application to AWS, with a series of prompts. You can accept all the defaults by hitting Enter:
@@ -157,6 +84,12 @@ The sam deploy command will package and deploy your application to AWS, with a s
 
 You should get a message "Successfully created/updated stack - <StackName> in <Region>" if all goes well
     
+This template will deploy two lambda functions - java-msk-iam-consumer-powertools-dynamodb-sam and java-msk-iam-consumer-legacy-dynamodb-sam
+
+The java-msk-iam-consumer-powertools-dynamodb-sam function has been deployed using the Lambda Powertools library that automagically deserializes the incoming AVRO messages using an annotation provided by Powertools.
+
+The java-msk-iam-consumer-legacy-dynamodb-sam function does not use the Lambda Powertools library and shows a way of deserializing the Kafka AVRO messages using the legacy approach for deserializing Kafka messages in a lambda function without using any annotations.
+    
 **Note: In case you want to deploy the Lambda function by pointing to an existing MSK Cluster and not the one created by running the CloudFormation template provided in this pattern, you will need to modify the values of the parameters MSKClusterName and MSKClusterId accordingly**
 
 
@@ -164,25 +97,28 @@ You should get a message "Successfully created/updated stack - <StackName> in <R
 
 Once the lambda function is deployed, send some Kafka messages on the topic that the lambda function is listening on, on the MSK server.
 
-For your convenience, a script has been created on the EC2 machine that was provisioned using Cloudformation.
+For your convenience, a Java program has been created on the EC2 machine that was provisioned using Cloudformation.
 
-cd /home/ec2-user
+cd /home/ec2-user/serverless-patterns/msk-schema-registry-lambda-java-sam/msk_with_iam_message_sender_json
 
 You should see a script called kafka_message_sender.sh. Run that script and you should be able to send a new Kafka message in every line as shown below
 
+Execute the script by passing two parameters, a random string and an integer between 1 and 500
+
 ```
-[ec2-user@ip-10-0-0-126 ~]$ sh kafka_message_sender.sh
->My first message
->My second message
->My third message
->My fourth message
->My fifth message
->My sixth message
->My seventh message
->My eigth message
->My ninth message
->My tenth message
->Ctrl-C
+sh /home/ec2-user/kafka_message_sender.sh <Random String> <Number between 1 and 500>
+
+For example, 
+
+sh /home/ec2-user/kafka_message_sender.sh FirstBatch 100
+
+```
+
+The kafka_message_sender.sh in turn invokes the java class, as shown below
+
+
+```
+java -classpath /home/ec2-user/serverless-patterns/msk-schema-registry-lambda-java-sam/msk_with_iam_message_sender_json/target/json-msk-iam-producer-0.0.1-SNAPSHOT.jar msk.iam.producer.JsonKafkaProducer /home/ec2-user/client.properties MskIamJsonTestTopic <Random String> <Number between 1 and 500>
 ```
 
 Either send at least 10 messages or wait for 300 seconds (check the values of BatchSize: 10 and MaximumBatchingWindowInSeconds: 300 in the template.yaml file)
