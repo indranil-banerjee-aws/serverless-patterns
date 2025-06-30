@@ -21,7 +21,6 @@ import software.amazon.awssdk.services.glue.model.SchemaVersionNumber;
 
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.serialization.StringDeserializer;
-import org.apache.kafka.common.serialization.StringSerializer;
 
 import com.amazonaws.services.schemaregistry.deserializers.avro.AWSKafkaAvroDeserializer;
 import com.amazonaws.services.schemaregistry.utils.AvroRecordType;
@@ -92,7 +91,21 @@ public class AvroKafkaHandler {
                     ConsumerRecords<String, GenericRecord> records = consumer.poll(Duration.ofMillis(1000));
                     for (final ConsumerRecord<String, GenericRecord> record : records) {
                     	GenericRecord value = record.value();
+                    	System.out.println("###################################");
                     	System.out.println("Received message: value = " + value);
+                    	System.out.println("Firstname = " + value.get("firstname"));
+                    	System.out.println("Lastname = " + value.get("lastname"));
+                    	System.out.println("Company = " + value.get("company"));
+                    	System.out.println("Street = " + value.get("street"));
+                    	System.out.println("City = " + value.get("city"));
+                    	System.out.println("County = " + value.get("county"));
+                    	System.out.println("State = " + value.get("state"));
+                    	System.out.println("Zip = " + value.get("zip"));
+                    	System.out.println("HomePhone = " + value.get("homePhone"));
+                    	System.out.println("CellPhone = " + value.get("cellPhone"));
+                    	System.out.println("Email = " + value.get("email"));
+                    	System.out.println("Website = " + value.get("website"));
+                    	System.out.println("###################################");
                     } 
                 }
             } catch (final SerializationException e) {
