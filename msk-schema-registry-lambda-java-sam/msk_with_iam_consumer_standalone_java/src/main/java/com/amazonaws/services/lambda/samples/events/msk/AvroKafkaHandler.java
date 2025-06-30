@@ -20,6 +20,7 @@ import software.amazon.awssdk.services.glue.model.SchemaId;
 import software.amazon.awssdk.services.glue.model.SchemaVersionNumber;
 
 import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 
 import com.amazonaws.services.schemaregistry.deserializers.avro.AWSKafkaAvroDeserializer;
@@ -66,7 +67,7 @@ public class AvroKafkaHandler {
             properties.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapBrokers);
             properties.put(ConsumerConfig.GROUP_ID_CONFIG, "avro-standalone-client");
             properties.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-            properties.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
+            properties.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
             properties.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, AWSKafkaAvroDeserializer.class.getName());
             properties.put(AWSSchemaRegistryConstants.AWS_REGION, region);
             properties.put(AWSSchemaRegistryConstants.REGISTRY_NAME, registryName);

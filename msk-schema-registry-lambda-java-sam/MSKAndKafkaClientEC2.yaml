@@ -553,6 +553,18 @@ Resources:
             sudo chown -R ec2-user .
             mvn clean install
             
+            #Compile code for standalone Java program
+            cd /home/ec2-user/serverless-patterns/msk-schema-registry-lambda-java-sam/msk_with_iam_consumer_standalone_java
+            sudo chown -R ec2-user .
+            mvn clean install
+            
+            #Script for running standalone Kafka message receiver
+            echo "#!/bin/bash" > kafka_standalone_receiver.sh
+            echo "# Run this script by redirecting output to a file and in the background" >> kafka_standalone_receiver.sh
+            echo "source /home/ec2-user/.bash_profile" >> kafka_standalone_receiver.sh
+            echo "java -classpath /home/ec2-user/serverless-patterns/msk-schema-registry-lambda-java-sam/msk_with_iam_consumer_standalone_java/target/kafka-event-consumer-function-1.0.0.jar com.amazonaws.services.lambda.samples.events.msk.AvroKafkaHandler /home/ec2-user/client.properties $KAFKA_TOPIC" >> kafka_standalone_receiver.sh
+        
+            
             # Get IP CIDR range for EC2 Instance Connect
             cd /home/ec2-user
             mkdir -p ip_prefix
@@ -856,7 +868,17 @@ Resources:
             sudo chown -R ec2-user .
             mvn clean install
             
+ 
+            #Compile code for standalone Java program
+            cd /home/ec2-user/serverless-patterns/msk-schema-registry-lambda-java-sam/msk_with_iam_consumer_standalone_java
+            sudo chown -R ec2-user .
+            mvn clean install
             
+            #Script for running standalone Kafka message receiver
+            echo "#!/bin/bash" > kafka_standalone_receiver.sh
+            echo "# Run this script by redirecting output to a file and in the background" >> kafka_standalone_receiver.sh
+            echo "source /home/ec2-user/.bash_profile" >> kafka_standalone_receiver.sh
+            echo "java -classpath /home/ec2-user/serverless-patterns/msk-schema-registry-lambda-java-sam/msk_with_iam_consumer_standalone_java/target/kafka-event-consumer-function-1.0.0.jar com.amazonaws.services.lambda.samples.events.msk.AvroKafkaHandler /home/ec2-user/client.properties $KAFKA_TOPIC" >> kafka_standalone_receiver.sh
             
             
             # Get IP CIDR range for EC2 Instance Connect
