@@ -28,6 +28,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.avro.generic.GenericDatumReader;
+import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.io.DatumReader;
 import org.apache.avro.io.Decoder;
 import org.apache.avro.io.DecoderFactory;
@@ -77,6 +79,7 @@ public class HandlerMSK implements RequestHandler<KafkaEvent, String>{
 				String decodedKey = "null";
 				String decodedValue = "null";
 				Person decodedPerson = null;
+				GenericRecord decodedGenericPerson = null;
 				//the key and value inside a kafka message are base64 encrypted and will need to be decrypted
 				if (null != key) {
 					byte[] decodedKeyBytes = Base64.getDecoder().decode(key);
@@ -85,9 +88,27 @@ public class HandlerMSK implements RequestHandler<KafkaEvent, String>{
 				if (null != value) {
 					try {
 						byte[] decodedValueBytes = Base64.getDecoder().decode(value);
-						DatumReader<Person> reader = new SpecificDatumReader<>(Person.class);
+						//DatumReader<Person> reader = new SpecificDatumReader<>(Person.class);
+						DatumReader<GenericRecord> reader = new GenericDatumReader<>();
 						Decoder decoder = DecoderFactory.get().binaryDecoder(decodedValueBytes, null);
-						decodedPerson = reader.read(null, decoder);
+						//decodedPerson = reader.read(null, decoder);
+						decodedGenericPerson = reader.read(null, decoder);
+						logger.log("###################################");
+						logger.log("Received message: value = " + decodedGenericPerson);
+						logger.log("Firstname = " + decodedGenericPerson.get("firstname"));
+						logger.log("Lastname = " + decodedGenericPerson.get("lastname"));
+						logger.log("Company = " + decodedGenericPerson.get("company"));
+						logger.log("Street = " + decodedGenericPerson.get("street"));
+						logger.log("City = " + decodedGenericPerson.get("city"));
+						logger.log("County = " + decodedGenericPerson.get("county"));
+						logger.log("State = " + decodedGenericPerson.get("state"));
+						logger.log("Zip = " + decodedGenericPerson.get("zip"));
+						logger.log("HomePhone = " + decodedGenericPerson.get("homePhone"));
+						logger.log("CellPhone = " + decodedGenericPerson.get("cellPhone"));
+						logger.log("Email = " + decodedGenericPerson.get("email"));
+						logger.log("Website = " + decodedGenericPerson.get("website"));
+						logger.log("###################################");
+						
 					} catch (IOException e) {
 						logger.log(e.getMessage());
 					}
@@ -96,22 +117,12 @@ public class HandlerMSK implements RequestHandler<KafkaEvent, String>{
 	    		thisMessage.setValue(value);
 	    		thisMessage.setDecodedKey(decodedKey);
 	    		
-	    		thisMessage.setDecodedValue(decodedValue);
+	    		thisMessage.setDecodedValue(decodedGenericPerson.toString());
 //	    		String AWS_SAM_LOCAL = System.getenv("AWS_SAM_LOCAL");
 //	    		if (null == AWS_SAM_LOCAL) {
 //	    			ddbUpdater.insertIntoDynamoDB(thisMessage);
 //	    		} 
 				listOfMessages.add(thisMessage);
-				// Below we are logging the particular kafka message in string format using the toString method
-	            // as well as in Json format using gson.toJson function
-				if (null != decodedPerson) {
-					logger.log("This person = " + getPersonString(decodedPerson));
-				} else {
-					logger.log("Person could not be decoded");
-				}
-				
-				logger.log("Received this message from Kafka - " + thisMessage.toString());
-				logger.log("Message in JSON format : " + gson.toJson(thisMessage));
 			}
 		}
 		logger.log("All Messages in this batch = " + gson.toJson(listOfMessages));
