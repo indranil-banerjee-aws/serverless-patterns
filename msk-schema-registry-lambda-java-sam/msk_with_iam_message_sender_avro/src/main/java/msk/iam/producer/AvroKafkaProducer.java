@@ -72,12 +72,14 @@ public class AvroKafkaProducer {
             Schema schema = new Schema.Parser().parse(schemaDefinition);
 
             // Create Kafka producer with AWS Glue Schema Registry serializer
-            Producer<String, GenericRecord> producer = KafkaProducerHelper.createProducer(
-                    bootstrapBrokers, region, registryName, schemaName);
+            //Producer<String, GenericRecord> producer = KafkaProducerHelper.createProducer(bootstrapBrokers, region, registryName, schemaName);
+            
+            Producer<String, Person> producer = KafkaProducerHelper.createPersonProducer(
+            		bootstrapBrokers, region, registryName, schemaName);
             
             //Sending out Kafka messages with AVRO schema
 			String kafkaMessageKey = seederKeyString + "-" + AvroKafkaProducer.getTodayDate();
-			AvroKafkaProducer.kafkaSender(prop, kafkaTopic, kafkaMessageKey, numberOfMessages, producer, schema);
+			AvroKafkaProducer.kafkaPersonSender(prop, kafkaTopic, kafkaMessageKey, numberOfMessages, producer, schema);
 		}
 		
 	}
@@ -111,7 +113,39 @@ public class AvroKafkaProducer {
 		producer.close();
 
 	}
+	
+	public static void kafkaPersonSender(Properties prop, String kafkaTopic, String seederKeyString, int numberOfMessages, 
+			Producer<String, Person> producer, Schema schema) {
+		List<String> people = AvroKafkaProducer.readDataFile();
+		int numberOfMessagesToSend=0;
+		if (people.size() > numberOfMessages) {
+			numberOfMessagesToSend = numberOfMessages;
+		} else {
+			numberOfMessagesToSend = people.size();
+		}
+		//Producer<String, String> producer = new KafkaProducer<String, String>(prop);
+		for (int i = 1; i <= numberOfMessagesToSend; i++) {
+			String thisKey = seederKeyString.concat("-" + Integer.toString(i));
+			Person thisPerson = AvroKafkaProducer.getPersonFromLine(people.get(i));
 
+			// Create AVRO record
+			//GenericRecord messageAvroRecord = createAvroRecord(schema, thisPerson);
+
+
+			try {
+				KafkaProducerHelper.sendAvroPersonMessage(producer, kafkaTopic, thisKey, thisPerson);
+			} catch (Exception e) {
+				System.out.println("Encountered a problem when sending a Kafka message. Ensure topic is valid");
+				e.printStackTrace();
+			}
+			System.out.println("Sent out one Kafka message with key = " + thisKey + " and value = " + thisPerson.getFirstname() + " " + thisPerson.getLastname());
+		}
+		producer.close();
+
+	}
+
+
+	
 	public static Properties readPropertiesFile(String fileName) throws FileNotFoundException, IOException {
 		FileInputStream fis = null;
 		Properties prop = null;

@@ -34,6 +34,7 @@ import org.apache.avro.io.DatumReader;
 import org.apache.avro.io.Decoder;
 import org.apache.avro.io.DecoderFactory;
 import org.apache.avro.specific.SpecificDatumReader;
+import org.apache.avro.specific.SpecificRecord;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -48,6 +49,9 @@ public class HandlerMSK implements RequestHandler<KafkaEvent, String>{
 	@Override
 	public String handleRequest(KafkaEvent event, Context context) {
 		LambdaLogger logger = context.getLogger();
+		logger.log("Event = " + event);
+		logger.log("Context = " + context);
+		
 		String response = new String("200 OK");
 		this.listOfMessages = new ArrayList<KafkaMessage>();
 		//Incoming KafkaEvent object has a property called records that is a map
@@ -79,7 +83,7 @@ public class HandlerMSK implements RequestHandler<KafkaEvent, String>{
 				String decodedKey = "null";
 				String decodedValue = "null";
 				Person decodedPerson = null;
-				GenericRecord decodedGenericPerson = null;
+				SpecificRecord decodedSpecificPerson = null;
 				//the key and value inside a kafka message are base64 encrypted and will need to be decrypted
 				if (null != key) {
 					byte[] decodedKeyBytes = Base64.getDecoder().decode(key);
@@ -89,24 +93,23 @@ public class HandlerMSK implements RequestHandler<KafkaEvent, String>{
 					try {
 						byte[] decodedValueBytes = Base64.getDecoder().decode(value);
 						//DatumReader<Person> reader = new SpecificDatumReader<>(Person.class);
-						DatumReader<GenericRecord> reader = new GenericDatumReader<>();
+						DatumReader<Person> reader = new SpecificDatumReader<Person>();
 						Decoder decoder = DecoderFactory.get().binaryDecoder(decodedValueBytes, null);
-						//decodedPerson = reader.read(null, decoder);
-						decodedGenericPerson = reader.read(null, decoder);
+						decodedPerson = reader.read(null, decoder);
 						logger.log("###################################");
-						logger.log("Received message: value = " + decodedGenericPerson);
-						logger.log("Firstname = " + decodedGenericPerson.get("firstname"));
-						logger.log("Lastname = " + decodedGenericPerson.get("lastname"));
-						logger.log("Company = " + decodedGenericPerson.get("company"));
-						logger.log("Street = " + decodedGenericPerson.get("street"));
-						logger.log("City = " + decodedGenericPerson.get("city"));
-						logger.log("County = " + decodedGenericPerson.get("county"));
-						logger.log("State = " + decodedGenericPerson.get("state"));
-						logger.log("Zip = " + decodedGenericPerson.get("zip"));
-						logger.log("HomePhone = " + decodedGenericPerson.get("homePhone"));
-						logger.log("CellPhone = " + decodedGenericPerson.get("cellPhone"));
-						logger.log("Email = " + decodedGenericPerson.get("email"));
-						logger.log("Website = " + decodedGenericPerson.get("website"));
+						logger.log("Received message: value = " + decodedPerson.toString());
+						logger.log("Firstname = " + decodedPerson.getFirstname());
+						logger.log("Lastname = " + decodedPerson.getLastname());
+						logger.log("Company = " + decodedPerson.getCompany());
+						logger.log("Street = " + decodedPerson.getStreet());
+						logger.log("City = " + decodedPerson.getCity());
+						logger.log("County = " + decodedPerson.getCounty());
+						logger.log("State = " + decodedPerson.getState());
+						logger.log("Zip = " + decodedPerson.getZip());
+						logger.log("HomePhone = " + decodedPerson.getHomePhone());
+						logger.log("CellPhone = " + decodedPerson.getCellPhone());
+						logger.log("Email = " + decodedPerson.getEmail());
+						logger.log("Website = " + decodedPerson.getWebsite());
 						logger.log("###################################");
 						
 					} catch (IOException e) {

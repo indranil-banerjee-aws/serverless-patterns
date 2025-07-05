@@ -13,6 +13,8 @@ import com.amazonaws.services.schemaregistry.serializers.avro.AWSKafkaAvroSerial
 import com.amazonaws.services.schemaregistry.utils.AWSSchemaRegistryConstants;
 import com.amazonaws.services.schemaregistry.utils.AvroRecordType;
 import org.apache.avro.generic.GenericRecord;
+import org.apache.avro.specific.SpecificRecord;
+
 import java.io.ByteArrayOutputStream;
 import java.util.Properties;
 import java.util.concurrent.ExecutionException;
@@ -73,6 +75,46 @@ public class KafkaProducerHelper {
         props.put(AWSSchemaRegistryConstants.REGISTRY_NAME, registryName);
         props.put(AWSSchemaRegistryConstants.SCHEMA_NAME, schemaName);
         props.put(AWSSchemaRegistryConstants.AVRO_RECORD_TYPE, AvroRecordType.GENERIC_RECORD.getName());
+        //props.put(AWSSchemaRegistryConstants.AVRO_RECORD_TYPE, AvroRecordType.SPECIFIC_RECORD.getName());
+        props.put(AWSSchemaRegistryConstants.SCHEMA_AUTO_REGISTRATION_SETTING, true);
+        
+        // Additional producer configurations
+        props.put(ProducerConfig.ACKS_CONFIG, "all");
+        props.put(ProducerConfig.RETRIES_CONFIG, 3);
+        props.put(ProducerConfig.MAX_BLOCK_MS_CONFIG, 120000); // 2 minutes
+        props.put(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG, 60000); // 1 minute
+        
+        return new KafkaProducer<>(props);
+    }
+    
+    /**
+     * Create a Kafka producer configured for IAM authentication and AWS Glue Schema Registry
+     * 
+     * @param bootstrapServers Bootstrap servers string
+     * @param region AWS region
+     * @param registryName Schema registry name
+     * @param schemaName Schema name
+     * @return Configured Kafka producer
+     */
+    public static Producer<String, Person> createPersonProducer(String bootstrapServers, String region, 
+                                                               String registryName, String schemaName) {
+        Properties props = new Properties();
+        props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
+        props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, AWSKafkaAvroSerializer.class.getName());
+        
+        // Configure IAM authentication
+        props.put("security.protocol", "SASL_SSL");
+        props.put("sasl.mechanism", "AWS_MSK_IAM");
+        props.put("sasl.jaas.config", "software.amazon.msk.auth.iam.IAMLoginModule required;");
+        props.put("sasl.client.callback.handler.class", "software.amazon.msk.auth.iam.IAMClientCallbackHandler");
+               
+        // Configure AWS Glue Schema Registry
+        props.put(AWSSchemaRegistryConstants.AWS_REGION, region);
+        props.put(AWSSchemaRegistryConstants.REGISTRY_NAME, registryName);
+        props.put(AWSSchemaRegistryConstants.SCHEMA_NAME, schemaName);
+        //props.put(AWSSchemaRegistryConstants.AVRO_RECORD_TYPE, AvroRecordType.GENERIC_RECORD.getName());
+        props.put(AWSSchemaRegistryConstants.AVRO_RECORD_TYPE, AvroRecordType.SPECIFIC_RECORD.getName());
         props.put(AWSSchemaRegistryConstants.SCHEMA_AUTO_REGISTRATION_SETTING, true);
         
         // Additional producer configurations
@@ -119,18 +161,75 @@ public class KafkaProducerHelper {
     }
     
     /**
+     * Send an AVRO message to a Kafka topic
+     * 
+     * @param producer Kafka producer
+     * @param topic Topic name
+     * @param key Message key (can be null)
+     * @param avroRecord AVRO record
+     * @throws ExecutionException If sending fails
+     * @throws InterruptedException If sending is interrupted
+     */
+    public static void sendAvroPersonMessage(Producer<String, Person> producer, String topic, String key, Person person) 
+            throws ExecutionException, InterruptedException {
+        try {
+            // Print AVRO record details before sending
+            System.out.println("Sending AVRO message to topic: '" + topic + "'");
+            System.out.println("Message key: " + key);
+            
+            
+            // Serialize the AVRO record to bytes to print it
+            byte[] serializedBytes = serializePersonAvroRecord(person);
+            System.out.println("Serialized AVRO (without schema registry header) in hex: " + bytesToHexString(serializedBytes, 0));
+            
+            // Create and send the record
+            ProducerRecord<String, Person> record = new ProducerRecord<String, Person>(topic, key, person);
+            producer.send(record).get(); // Using get() to make it synchronous
+            System.out.println("Successfully sent AVRO message to topic: " + topic);
+            producer.flush();
+        } catch (Exception e) {
+            System.err.println("Error sending message to topic '" + topic + "': " + e.getMessage());
+            e.printStackTrace();
+            throw e;
+        }
+    }
+    
+    /**
      * Serialize an AVRO record to bytes (without schema registry header)
      * 
      * @param avroRecord AVRO record to serialize
      * @return Serialized AVRO bytes
      */
+    
     private static byte[] serializeAvroRecord(GenericRecord avroRecord) {
         try {
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
             org.apache.avro.io.BinaryEncoder encoder = org.apache.avro.io.EncoderFactory.get().binaryEncoder(outputStream, null);
-            org.apache.avro.specific.SpecificDatumWriter<GenericRecord> writer = 
-                new org.apache.avro.specific.SpecificDatumWriter<>(avroRecord.getSchema());
+            org.apache.avro.generic.GenericDatumWriter<GenericRecord> writer =
+                new org.apache.avro.generic.GenericDatumWriter<>(avroRecord.getSchema());
             writer.write(avroRecord, encoder);
+            encoder.flush();
+            return outputStream.toByteArray();
+        } catch (Exception e) {
+            System.err.println("Error serializing AVRO record: " + e.getMessage());
+            return new byte[0];
+        }
+    }
+    
+    
+    /**
+     * Serialize an AVRO record to bytes (without schema registry header)
+     * 
+     * @param avroRecord AVRO record to serialize
+     * @return Serialized AVRO bytes
+     */
+    private static byte[] serializePersonAvroRecord(Person person) {
+        try {
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+            org.apache.avro.io.BinaryEncoder encoder = org.apache.avro.io.EncoderFactory.get().binaryEncoder(outputStream, null);
+            org.apache.avro.specific.SpecificDatumWriter<SpecificRecord> writer = 
+                new org.apache.avro.specific.SpecificDatumWriter<>(person.getSchema());
+            writer.write(person, encoder);
             encoder.flush();
             return outputStream.toByteArray();
         } catch (Exception e) {

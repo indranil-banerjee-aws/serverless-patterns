@@ -12,14 +12,14 @@ import software.amazon.lambda.powertools.kafka.Deserialization;
 import software.amazon.lambda.powertools.kafka.DeserializationType;
 import software.amazon.lambda.powertools.logging.Logging;
 
-public class AvroKafkaHandler implements RequestHandler<ConsumerRecords<String, GenericRecord>, String> {
+public class AvroKafkaHandler implements RequestHandler<ConsumerRecords<String, Person>, String> {
     private static final Logger LOGGER = LoggerFactory.getLogger(AvroKafkaHandler.class);
 
     @Override
     @Logging
     @Deserialization(type = DeserializationType.KAFKA_AVRO)
-    public String handleRequest(ConsumerRecords<String, GenericRecord> records, Context context) {
-        for (ConsumerRecord<String, GenericRecord> record : records) {
+    public String handleRequest(ConsumerRecords<String, Person> records, Context context) {
+        for (ConsumerRecord<String, Person> record : records) {
             // Key remains as string (if present)
             String key = record.key();
             if (key != null) {
