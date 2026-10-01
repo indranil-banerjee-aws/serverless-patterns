@@ -57,6 +57,12 @@ Parameters:
   ServerlessLandGithubLocation:
     Type: String
     Default: https://github.com/aws-samples/serverless-patterns/
+    Description: Git URL of the serverless-patterns repository (or your fork) that the client instance clones. URL only - put the branch in ServerlessLandGithubBranch.
+  ServerlessLandGithubBranch:
+    Type: String
+    Default: main
+    AllowedPattern: '^[A-Za-z0-9._/-]+$'
+    Description: Branch of ServerlessLandGithubLocation to clone, for example main or a feature branch in your fork.
 
 Mappings:
   SubnetConfig:
@@ -1086,7 +1092,8 @@ Resources:
               SUBNET2=${subnet2}
               SUBNET3=${subnet3}
               LAMBDA_SG=${lambda_sg}
-              SERVERLESS_LAND_GITHUB_LOCATION=${serverless_land_github_location}
+              SERVERLESS_LAND_GITHUB_LOCATION="${serverless_land_github_location}"
+              SERVERLESS_LAND_GITHUB_BRANCH="${serverless_land_github_branch}"
               CLIENT_SG=${client_sg}
               KAFKA_HOME=/home/ec2-user/kafka
               KAFKA_JSON_APPS_JAR=/home/ec2-user/kafka-json-apps.jar
@@ -1213,7 +1220,7 @@ Resources:
 
               # Clone the serverless pattern (Java apps + scripts + SAM template)
               cd /home/ec2-user
-              git clone --depth 1 --filter=blob:none --sparse $SERVERLESS_LAND_GITHUB_LOCATION serverless-patterns
+              git clone --depth 1 --filter=blob:none --sparse --branch "$SERVERLESS_LAND_GITHUB_BRANCH" "$SERVERLESS_LAND_GITHUB_LOCATION" serverless-patterns
               git -C serverless-patterns sparse-checkout set kafka-lambda-oauth-java-sam
               PATTERN_DIR=/home/ec2-user/serverless-patterns/kafka-lambda-oauth-java-sam/oauthbearer_auth
 
@@ -1322,6 +1329,7 @@ Resources:
               lambda_sg: !GetAtt KafkaBrokerSecurityGroup.GroupId
               client_sg: !GetAtt KafkaClientInstanceSecurityGroup.GroupId
               serverless_land_github_location: !Ref ServerlessLandGithubLocation
+              serverless_land_github_branch: !Ref ServerlessLandGithubBranch
 
   EC2InstanceEndpoint:
     Type: AWS::EC2::InstanceConnectEndpoint

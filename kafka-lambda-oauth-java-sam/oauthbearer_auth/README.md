@@ -31,7 +31,7 @@ Important: this application uses various AWS services and there are costs associ
 
 ## Run the CloudFormation template to create the Kafka cluster, Cognito User Pool and client EC2 machine
 
-Deploy `KafkaBrokersCognitoClientEC2.yaml` from the AWS CloudFormation console (or CLI). There are **no password parameters** - the three role users' passwords are generated into AWS Secrets Manager. You may optionally override the usernames (`AdminUsername`, `ProducerUsername`, `ConsumerUsername`), the Java version, the Kafka download URL, the topic name, and (when deploying from your own fork) `ServerlessLandGithubLocation`.
+Deploy `KafkaBrokersCognitoClientEC2.yaml` from the AWS CloudFormation console (or CLI). There are **no password parameters** - the three role users' passwords are generated into AWS Secrets Manager. You may optionally override the usernames (`AdminUsername`, `ProducerUsername`, `ConsumerUsername`), the Java version, the Kafka download URL, the topic name, and (when deploying from your own fork) `ServerlessLandGithubLocation` and `ServerlessLandGithubBranch`. Put only the repository URL in `ServerlessLandGithubLocation` and the branch name in `ServerlessLandGithubBranch` (default `main`) - don't append `-b <branch>` to the URL.
 
 Wait for the stack to reach `CREATE_COMPLETE`. It creates a VPC (1 public / 3 private subnets, NAT), 3 Kafka broker EC2 instances, an Amazon Cognito User Pool (+ domain, resource server, `client_credentials` app client, and three users), and a client EC2 instance with Java, Maven, Docker, the AWS CLI, the AWS SAM CLI, Kafka CLI tools, the built producer/consumer apps and the helper scripts installed.
 
