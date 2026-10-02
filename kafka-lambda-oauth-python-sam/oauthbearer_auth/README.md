@@ -96,7 +96,7 @@ At the time of publishing, **AWS SAM does not support the `OAUTHBEARER` auth typ
 Run it from this directory on the client EC2 instance:
 
 ```bash
-export AWS_REGION=us-west-2
+# AWS_REGION and STACK_NAME are read from ~/kafka_oauth.env, written at boot
 cd ~/serverless-patterns/kafka-lambda-oauth-python-sam/oauthbearer_auth
 bash scripts/deploy_lambda_oauth_cli.sh
 ```

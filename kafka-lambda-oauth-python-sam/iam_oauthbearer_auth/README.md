@@ -43,7 +43,7 @@ Each interactive client **assumes** its role and mints a web-identity token (`re
 2. Connect to the client EC2 (`KafkaClientInstance`) via EC2 Instance Connect.
 3. Deploy the Lambda + event source mapping:
    ```bash
-   export AWS_REGION=us-west-2
+   # AWS_REGION and STACK_NAME are read from ~/kafka_oauth.env, written at boot
    cd ~/serverless-patterns/kafka-lambda-oauth-python-sam/iam_oauthbearer_auth
    bash scripts/deploy_lambda_oauth_cli.sh
    ```

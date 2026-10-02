@@ -1239,6 +1239,7 @@ Resources:
               # non-zero and would abort a script running under 'set -e'.
               cat > /home/ec2-user/kafka_oauth.env <<EOF
               export AWS_REGION=$AWS_REGION
+              export STACK_NAME=${AWS::StackName}
               export USER_POOL_ID=$USER_POOL_ID
               export APP_CLIENT_ID=$APP_CLIENT_ID
               export BOOTSTRAP_SERVERS=$BOOTSTRAP_SERVERS
