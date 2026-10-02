@@ -44,7 +44,7 @@ Parameters:
     Description: >
       AWS-managed prefix list ID for EC2 Instance Connect in this region
       (com.amazonaws.<region>.ec2-instance-connect). Blank to skip; the client
-      UserData also authorizes it automatically. Default is the us-west-2 value.
+      UserData also looks it up for the stack's region and authorizes it automatically.
     Default: ""
 
 Mappings:
