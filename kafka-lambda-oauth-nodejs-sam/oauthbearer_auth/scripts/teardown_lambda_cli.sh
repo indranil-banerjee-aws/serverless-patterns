@@ -17,8 +17,12 @@ if [ -f "$ENV_FILE" ]; then
 fi
 
 REGION="${AWS_REGION:-us-west-2}"
-FUNCTION_NAME="${FUNCTION_NAME:-kafka-oauth-selfmanaged-consumer}"
-DDB_TABLE_NAME="${DDB_TABLE_NAME:-KafkaOAuthBearerAuth}"
+STACK_NAME="${STACK_NAME:-kafka-oauth}"
+# Lambda-side resource names are derived from the stack name, so two stacks in the
+# same account and region (for example the Java and Python versions of this
+# pattern) never delete each other's function, role, secrets, or table.
+FUNCTION_NAME="${FUNCTION_NAME:-${STACK_NAME}-consumer}"
+DDB_TABLE_NAME="${DDB_TABLE_NAME:-${STACK_NAME}-messages}"
 ROLE_NAME="${ROLE_NAME:-${FUNCTION_NAME}-role}"
 SECRET_NAMES=("${FUNCTION_NAME}-oauth-creds" "${FUNCTION_NAME}-broker-ca")
 
