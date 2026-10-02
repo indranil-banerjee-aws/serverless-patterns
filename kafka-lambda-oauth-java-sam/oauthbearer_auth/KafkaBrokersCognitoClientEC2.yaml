@@ -1218,10 +1218,10 @@ Resources:
               keytool -importcert -noprompt -alias kafka -file /home/ec2-user/kafka.crt \
                 -keystore "$KAFKA_TRUSTSTORE" -storetype PKCS12 -storepass changeit
 
-              # Clone the serverless pattern (Java apps + scripts + SAM template)
+              # Clone only this pattern's folder (Java apps + scripts + SAM template)
               cd /home/ec2-user
               git clone --depth 1 --filter=blob:none --sparse --branch "$SERVERLESS_LAND_GITHUB_BRANCH" "$SERVERLESS_LAND_GITHUB_LOCATION" serverless-patterns
-              git -C serverless-patterns sparse-checkout set kafka-lambda-oauth-java-sam
+              git -C serverless-patterns sparse-checkout set kafka-lambda-oauth-java-sam/oauthbearer_auth
               PATTERN_DIR=/home/ec2-user/serverless-patterns/kafka-lambda-oauth-java-sam/oauthbearer_auth
 
               # Build the producer/consumer JSON apps (shaded jar) and install scripts
