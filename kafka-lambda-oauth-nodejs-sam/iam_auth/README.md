@@ -44,7 +44,7 @@ MSK presents a publicly-trusted TLS certificate, so no truststore / `SERVER_ROOT
 2. Connect to the client EC2 (`KafkaClientInstance`) via EC2 Instance Connect. The client already created the topic (`cat topic_creator_output.txt`).
 3. Deploy the Lambda + event source mapping:
    ```bash
-   export AWS_REGION=us-west-2
+   # AWS_REGION and STACK_NAME are read from ~/kafka_oauth.env, written at boot
    cd ~/serverless-patterns/kafka-lambda-oauth-nodejs-sam/iam_auth
    bash scripts/deploy_lambda_iam_cli.sh
    ```
