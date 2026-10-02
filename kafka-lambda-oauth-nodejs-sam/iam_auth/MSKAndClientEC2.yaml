@@ -368,7 +368,7 @@ Resources:
               # Clone the pattern and install the Node.js JSON sample apps
               cd /home/ec2-user
               git clone --depth 1 --filter=blob:none --sparse --branch "$SERVERLESS_LAND_GITHUB_BRANCH" "$SERVERLESS_LAND_GITHUB_LOCATION" serverless-patterns
-              git -C serverless-patterns sparse-checkout set kafka-lambda-oauth-nodejs-sam
+              git -C serverless-patterns sparse-checkout set kafka-lambda-oauth-nodejs-sam/iam_auth
               PATTERN_DIR=/home/ec2-user/serverless-patterns/kafka-lambda-oauth-nodejs-sam/iam_auth
               mkdir -p "$KAFKA_JSON_APPS_DIR" && cp "$PATTERN_DIR"/kafka_json_apps/*.mjs "$PATTERN_DIR"/kafka_json_apps/package.json "$KAFKA_JSON_APPS_DIR"/
               ( cd "$KAFKA_JSON_APPS_DIR" && npm install --omit=dev )
