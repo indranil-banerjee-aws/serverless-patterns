@@ -5,6 +5,17 @@
 set -o pipefail
 export AWS_PAGER=""
 
+# Pick up STACK_NAME, AWS_REGION, and the rest of the values the client instance's
+# user data recorded at boot, so this script works without any exports. Anything
+# already set in your environment takes precedence.
+ENV_FILE="${KAFKA_OAUTH_ENV:-/home/ec2-user/kafka_oauth.env}"
+if [ -f "$ENV_FILE" ]; then
+  while IFS='=' read -r key value; do
+    key="${key#export }"
+    if [ -n "$key" ] && [ -z "${!key:-}" ]; then export "$key=$value"; fi
+  done < <(grep -E '^export [A-Za-z_][A-Za-z0-9_]*=' "$ENV_FILE")
+fi
+
 REGION="${AWS_REGION:-us-west-2}"
 FUNCTION_NAME="${FUNCTION_NAME:-kafka-iam-oauth-consumer}"
 DDB_TABLE_NAME="${DDB_TABLE_NAME:-KafkaIamOAuthBearerAuth}"

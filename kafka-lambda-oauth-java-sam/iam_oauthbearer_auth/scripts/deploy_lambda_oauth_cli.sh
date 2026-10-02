@@ -28,6 +28,17 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PATTERN_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # ---------------------------- Configuration ---------------------------------
+# Pick up STACK_NAME, AWS_REGION, and the rest of the values the client instance's
+# user data recorded at boot, so this script works without any exports. Anything
+# already set in your environment takes precedence.
+ENV_FILE="${KAFKA_OAUTH_ENV:-/home/ec2-user/kafka_oauth.env}"
+if [ -f "$ENV_FILE" ]; then
+  while IFS='=' read -r key value; do
+    key="${key#export }"
+    if [ -n "$key" ] && [ -z "${!key:-}" ]; then export "$key=$value"; fi
+  done < <(grep -E '^export [A-Za-z_][A-Za-z0-9_]*=' "$ENV_FILE")
+fi
+
 REGION="${AWS_REGION:-us-west-2}"
 STACK_NAME="${STACK_NAME:-kafka-iam-oauth}"
 FUNCTION_NAME="${FUNCTION_NAME:-kafka-iam-oauth-consumer}"
@@ -50,8 +61,17 @@ BROKER_CA_CERT_FILE="${BROKER_CA_CERT_FILE:-/home/ec2-user/kafka.crt}"
 # ---------------------- Discover config from the stack -----------------------
 get_output() {
   aws cloudformation describe-stacks --region "$REGION" --stack-name "$STACK_NAME" \
-    --query "Stacks[0].Outputs[?OutputKey=='$1'].OutputValue" --output text 2>/dev/null
+    --query "Stacks[0].Outputs[?OutputKey=='$1'].OutputValue" --output text 2>/dev/null || true
 }
+# Fail loudly if the stack can't be found. Without this check, a wrong STACK_NAME
+# or AWS_REGION makes the lookups below fail inside variable assignments, and
+# 'set -e' exits the script silently.
+if ! aws cloudformation describe-stacks --region "$REGION" --stack-name "$STACK_NAME" >/dev/null 2>&1; then
+  echo "ERROR: CloudFormation stack '$STACK_NAME' not found in region $REGION."
+  echo "       Set STACK_NAME and AWS_REGION to match your stack, for example:"
+  echo "       STACK_NAME=<your-stack-name> AWS_REGION=<region> bash $0"
+  exit 1
+fi
 SUBNET1="${SUBNET1:-$(get_output PrivateSubnetOne)}"
 SUBNET2="${SUBNET2:-$(get_output PrivateSubnetTwo)}"
 SUBNET3="${SUBNET3:-$(get_output PrivateSubnetThree)}"

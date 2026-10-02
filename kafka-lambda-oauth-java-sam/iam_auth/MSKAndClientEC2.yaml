@@ -372,6 +372,7 @@ Resources:
 
               cat > /home/ec2-user/kafka_oauth.env <<EOF
               export AWS_REGION=$AWS_REGION
+              export STACK_NAME=${AWS::StackName}
               export BOOTSTRAP_SERVERS=$BOOTSTRAP_SERVERS
               export KAFKA_TOPIC=$KAFKA_TOPIC
               export KAFKA_HOME=$KAFKA_HOME
