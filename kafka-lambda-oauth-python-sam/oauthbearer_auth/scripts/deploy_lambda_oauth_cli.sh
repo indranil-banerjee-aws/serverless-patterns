@@ -44,7 +44,10 @@ fi
 
 REGION="${AWS_REGION:-us-west-2}"
 STACK_NAME="${STACK_NAME:-kafka-oauth}"                    # CFN stack for VPC/subnet/SG discovery
-FUNCTION_NAME="${FUNCTION_NAME:-kafka-oauth-selfmanaged-consumer}"
+# Lambda-side resource names are derived from the stack name, so two stacks in the
+# same account and region (for example the Java and Python versions of this
+# pattern) never overwrite each other's function, role, secrets, or table.
+FUNCTION_NAME="${FUNCTION_NAME:-${STACK_NAME}-consumer}"
 RUNTIME="${RUNTIME:-python3.13}"
 HANDLER="app.lambda_handler"
 ZIP_PATH="${ZIP_PATH:-$PATTERN_DIR/kafka_event_consumer_function/function.zip}"
@@ -52,7 +55,12 @@ TOPIC="${TOPIC:-${KAFKA_TOPIC:-KafkaOAuthBearerLambdaTopic}}"
 CONSUMER_GROUP="${CONSUMER_GROUP:-lambda-oauth-consumer}"
 POLLER_GROUP="${POLLER_GROUP:-${CONSUMER_GROUP}-cell1}"    # must be a fresh name per VPC + event source type
 BATCH_SIZE="${BATCH_SIZE:-10}"
-DDB_TABLE_NAME="${DDB_TABLE_NAME:-KafkaOAuthBearerAuth}"   # the function writes each message here
+DDB_TABLE_NAME="${DDB_TABLE_NAME:-${STACK_NAME}-messages}"   # the function writes each message here
+if [ ${#FUNCTION_NAME} -gt 59 ]; then
+  echo "ERROR: FUNCTION_NAME '$FUNCTION_NAME' is longer than 59 characters (IAM role names, which"
+  echo "       add '-role', max out at 64). Set FUNCTION_NAME to something shorter."
+  exit 1
+fi
 
 # Bootstrap servers = the brokers' SASL_SSL / OAUTHBEARER listener (:9092 in this pattern).
 BOOTSTRAP_SERVERS="${BOOTSTRAP_SERVERS:-10.0.1.10:9092,10.0.2.10:9092,10.0.3.10:9092}"

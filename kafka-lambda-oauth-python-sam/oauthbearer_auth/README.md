@@ -91,7 +91,7 @@ At the time of publishing, **AWS SAM does not support the `OAUTHBEARER` auth typ
 
 ### Deploy via the AWS CLI (OAuth)
 
-`deploy_lambda_oauth_cli.sh` deploys the same Python consumer with a self-managed Kafka event source using `aws lambda create-event-source-mapping`, wiring `OAUTHBEARER_AUTH` (client-credentials secret), `OAUTHBEARER_SCOPE`, `SERVER_ROOT_CA_CERTIFICATE`, the VPC subnet/SG, and the required `provisioned-poller-config`. It also creates the **DynamoDB table** (`KafkaOAuthBearerAuth`), sets the `DYNAMODB_TABLE_NAME` environment variable, and grants the function `dynamodb:PutItem`. It auto-discovers the VPC config and the Cognito `client_credentials` app client from the stack, fetches the app-client secret, and uses the broker cert the client fetched (`/home/ec2-user/kafka.crt`) as the TLS trust anchor.
+`deploy_lambda_oauth_cli.sh` deploys the same Python consumer with a self-managed Kafka event source using `aws lambda create-event-source-mapping`, wiring `OAUTHBEARER_AUTH` (client-credentials secret), `OAUTHBEARER_SCOPE`, `SERVER_ROOT_CA_CERTIFICATE`, the VPC subnet/SG, and the required `provisioned-poller-config`. It also creates the **DynamoDB table** (`<stack-name>-messages`), sets the `DYNAMODB_TABLE_NAME` environment variable, and grants the function `dynamodb:PutItem`. It auto-discovers the VPC config and the Cognito `client_credentials` app client from the stack, fetches the app-client secret, and uses the broker cert the client fetched (`/home/ec2-user/kafka.crt`) as the TLS trust anchor.
 
 Run it from this directory on the client EC2 instance:
 
@@ -104,7 +104,7 @@ bash scripts/deploy_lambda_oauth_cli.sh
 Wait for the event source mapping to reach `Enabled`:
 
 ```bash
-aws lambda list-event-source-mappings --function-name kafka-oauth-selfmanaged-consumer \
+aws lambda list-event-source-mappings --function-name "$STACK_NAME-consumer" \
   --query 'EventSourceMappings[].[UUID,State,LastProcessingResult]' --output table
 ```
 
@@ -117,9 +117,9 @@ bash scripts/producer_send.sh $KAFKA_TOPIC 10
 ```
 
 * **CloudWatch Logs**: the function logs each Kafka message (topic, partition, offset, timestamp, timestampType, decoded key/value). A single invocation receives a batch of messages as a map keyed by `topic-partition`; the key and value of each message are base64-encoded and are decoded by the handler.
-* **DynamoDB**: check the `KafkaOAuthBearerAuth` table - each item is keyed by `topicPartition` (partition key) + `offset` (sort key) and carries the Kafka metadata plus each field of the JSON payload:
+* **DynamoDB**: check the `<stack-name>-messages` table - each item is keyed by `topicPartition` (partition key) + `offset` (sort key) and carries the Kafka metadata plus each field of the JSON payload:
   ```bash
-  aws dynamodb scan --table-name KafkaOAuthBearerAuth --max-items 5
+  aws dynamodb scan --table-name "$STACK_NAME-messages" --max-items 5
   ```
 
 Either send at least 10 messages or wait 300 seconds (see `BatchSize` and `MaximumBatchingWindowInSeconds`).
@@ -128,12 +128,12 @@ Either send at least 10 messages or wait 300 seconds (see `BatchSize` and `Maxim
 
 1. Delete the Lambda event source mapping and function, and the DynamoDB table:
    ```bash
-   UUID=$(aws lambda list-event-source-mappings --function-name kafka-oauth-selfmanaged-consumer --query 'EventSourceMappings[0].UUID' --output text)
+   UUID=$(aws lambda list-event-source-mappings --function-name "$STACK_NAME-consumer" --query 'EventSourceMappings[0].UUID' --output text)
    aws lambda delete-event-source-mapping --uuid "$UUID"
-   aws lambda delete-function --function-name kafka-oauth-selfmanaged-consumer
-   aws dynamodb delete-table --table-name KafkaOAuthBearerAuth
+   aws lambda delete-function --function-name "$STACK_NAME-consumer"
+   aws dynamodb delete-table --table-name "$STACK_NAME-messages"
    ```
-   Also delete the two secrets the deploy created (`kafka-oauth-selfmanaged-consumer-oauth-creds`, `kafka-oauth-selfmanaged-consumer-broker-ca`) and the function's execution role if you no longer need them.
+   Also delete the two secrets the deploy created (`<stack-name>-consumer-oauth-creds`, `<stack-name>-consumer-broker-ca`) and the function's execution role if you no longer need them.
 
 2. Delete the CloudFormation stack (Kafka brokers, Cognito User Pool, client EC2) from the console. If deletion fails, retry with Force Delete - ENIs created by the Lambda event source in the VPC can delay VPC deletion.
 

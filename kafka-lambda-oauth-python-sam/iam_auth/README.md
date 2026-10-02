@@ -48,16 +48,16 @@ MSK presents a publicly-trusted TLS certificate, so no truststore / `SERVER_ROOT
    cd ~/serverless-patterns/kafka-lambda-oauth-python-sam/iam_auth
    bash scripts/deploy_lambda_iam_cli.sh
    ```
-   It resolves the IAM bootstrap brokers, creates the DynamoDB table (`KafkaIamAuth`), grants the execution role `kafka-cluster` read access + `dynamodb:PutItem`, and creates the ESM with `{Type: IAM_AUTH}`.
+   It resolves the IAM bootstrap brokers, creates the DynamoDB table (`<stack-name>-messages`), grants the execution role `kafka-cluster` read access + `dynamodb:PutItem`, and creates the ESM with `{Type: IAM_AUTH}`.
 
 ## Test
 ```bash
-aws lambda list-event-source-mappings --function-name kafka-iam-consumer \
+aws lambda list-event-source-mappings --function-name "$STACK_NAME-consumer" \
   --query 'EventSourceMappings[].[UUID,State,LastProcessingResult]' --output table
 bash scripts/producer_send.sh $KAFKA_TOPIC 10
-aws dynamodb scan --table-name KafkaIamAuth --max-items 5
+aws dynamodb scan --table-name "$STACK_NAME-messages" --max-items 5
 ```
 Negative tests: `bash scripts/bad_invalid_credentials.sh` and `bash scripts/bad_unauthorized_operations.sh`.
 
 ## Cleanup
-Delete the event source mapping and function, the DynamoDB table (`KafkaIamAuth`), and the execution role; then delete the CloudFormation stack (deleting the MSK cluster takes a while).
+Delete the event source mapping and function, the DynamoDB table (`<stack-name>-messages`), and the execution role; then delete the CloudFormation stack (deleting the MSK cluster takes a while).

@@ -47,14 +47,14 @@ Each interactive client **assumes** its role and mints a web-identity token (`re
    cd ~/serverless-patterns/kafka-lambda-oauth-python-sam/iam_oauthbearer_auth
    bash scripts/deploy_lambda_oauth_cli.sh
    ```
-   It enables outbound federation, creates the DynamoDB table (`KafkaIamOAuthBearerAuth`), grants the execution role `sts:GetWebIdentityToken`, and creates the ESM with `IAM_OAUTHBEARER_AUTH` + `OAUTHBEARER_AUDIENCE` + `SERVER_ROOT_CA_CERTIFICATE`.
+   It enables outbound federation, creates the DynamoDB table (`<stack-name>-messages`), grants the execution role `sts:GetWebIdentityToken`, and creates the ESM with `IAM_OAUTHBEARER_AUTH` + `OAUTHBEARER_AUDIENCE` + `SERVER_ROOT_CA_CERTIFICATE`.
 
 ## Test
 ```bash
-aws lambda list-event-source-mappings --function-name kafka-iam-oauth-consumer \
+aws lambda list-event-source-mappings --function-name "$STACK_NAME-consumer" \
   --query 'EventSourceMappings[].[UUID,State,LastProcessingResult]' --output table
 bash scripts/producer_send.sh $KAFKA_TOPIC 10
-aws dynamodb scan --table-name KafkaIamOAuthBearerAuth --max-items 5
+aws dynamodb scan --table-name "$STACK_NAME-messages" --max-items 5
 ```
 Negative tests: `bash scripts/bad_invalid_credentials.sh` and `bash scripts/bad_unauthorized_operations.sh`.
 
@@ -68,4 +68,4 @@ AWS Outbound web-identity tokens are short-lived (**~300 seconds**), and authent
 - `refresh_token.sh` writes a **static** token, and the Python (kafka-python) producer/consumer supply that pre-minted token without refreshing it, so a `consumer_receive.sh` left running **longer than ~5 minutes will drop** with an auth error. Short produce/consume runs each mint a fresh token, so they're unaffected — just re-run for another session.
 
 ## Cleanup
-Delete the event source mapping and function, the DynamoDB table (`KafkaIamOAuthBearerAuth`), the broker-CA secret, and the execution role; then delete the CloudFormation stack. Optionally remove the S3 Kafka/cert cache bucket (`kafka-*-cache-<account>-<region>`).
+Delete the event source mapping and function, the DynamoDB table (`<stack-name>-messages`), the broker-CA secret, and the execution role; then delete the CloudFormation stack. Optionally remove the S3 Kafka/cert cache bucket (`kafka-*-cache-<account>-<region>`).

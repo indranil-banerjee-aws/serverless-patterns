@@ -32,7 +32,10 @@ fi
 
 REGION="${AWS_REGION:-us-west-2}"
 STACK_NAME="${STACK_NAME:-kafka-iam}"
-FUNCTION_NAME="${FUNCTION_NAME:-kafka-iam-consumer}"
+# Lambda-side resource names are derived from the stack name, so two stacks in the
+# same account and region (for example the Java and Python versions of this
+# pattern) never overwrite each other's function, role, secrets, or table.
+FUNCTION_NAME="${FUNCTION_NAME:-${STACK_NAME}-consumer}"
 RUNTIME="${RUNTIME:-python3.13}"
 HANDLER="app.lambda_handler"
 ZIP_PATH="${ZIP_PATH:-$PATTERN_DIR/kafka_event_consumer_function/function.zip}"
@@ -40,7 +43,12 @@ TOPIC="${TOPIC:-${KAFKA_TOPIC:-KafkaIamLambdaTopic}}"
 CONSUMER_GROUP="${CONSUMER_GROUP:-lambda-iam-consumer}"
 POLLER_GROUP="${POLLER_GROUP:-${CONSUMER_GROUP}-cell1}"
 BATCH_SIZE="${BATCH_SIZE:-10}"
-DDB_TABLE_NAME="${DDB_TABLE_NAME:-KafkaIamAuth}"
+DDB_TABLE_NAME="${DDB_TABLE_NAME:-${STACK_NAME}-messages}"
+if [ ${#FUNCTION_NAME} -gt 59 ]; then
+  echo "ERROR: FUNCTION_NAME '$FUNCTION_NAME' is longer than 59 characters (IAM role names, which"
+  echo "       add '-role', max out at 64). Set FUNCTION_NAME to something shorter."
+  exit 1
+fi
 
 # ---------------------- Discover config from the stack -----------------------
 get_output() {
