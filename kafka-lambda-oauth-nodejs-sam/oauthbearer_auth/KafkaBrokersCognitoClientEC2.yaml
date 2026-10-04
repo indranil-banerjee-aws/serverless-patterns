@@ -1049,6 +1049,10 @@ Resources:
 
   KafkaClientEC2Instance:
     Type: AWS::EC2::Instance
+    CreationPolicy:
+      ResourceSignal:
+        Count: 1
+        Timeout: PT60M
     DependsOn:
       - KafkaBroker1
       - KafkaBroker2
@@ -1080,6 +1084,12 @@ Resources:
             - |
               #!/bin/bash -xe
               exec > /var/log/kafka-client-setup.log 2>&1
+
+              # Report how setup ended. The instance's CreationPolicy keeps the stack in
+              # CREATE_IN_PROGRESS until this signal arrives, so CREATE_COMPLETE means the
+              # client is ready, and a failed setup fails the stack with the exit code.
+              dnf install -y aws-cfn-bootstrap || yum install -y aws-cfn-bootstrap || true
+              trap '/opt/aws/bin/cfn-signal -e $? --stack ${AWS::StackName} --resource KafkaClientEC2Instance --region ${AWS::Region}' EXIT
 
               JAVA_VERSION=${java_version}
               NODE_VERSION=${node_version}
@@ -1298,12 +1308,16 @@ Resources:
                   --add --allow-principal "User:$CONSUMER_USERNAME" --operation Read --group '*' || return 1
                 sudo -u ec2-user bash /home/ec2-user/scripts/admin_create_topic.sh "$KAFKA_TOPIC" 3 || return 1
               }
+              BOOTSTRAP_OK=false
               for i in 1 2 3 4 5 6 7 8; do
                 if bootstrap_acls > /home/ec2-user/bootstrap_acls_output.txt 2>&1; then
-                  echo "ACL/topic bootstrap succeeded"; break
+                  echo "ACL/topic bootstrap succeeded"; BOOTSTRAP_OK=true; break
                 fi
                 echo "bootstrap attempt $i failed; retrying in 20s..."; sleep 20
               done
+              if [ "$BOOTSTRAP_OK" != true ]; then
+                echo "ERROR: topic bootstrap failed after 8 attempts; see /home/ec2-user/bootstrap_acls_output.txt"; exit 1
+              fi
               chown -R ec2-user:ec2-user /home/ec2-user
             - java_version: !Ref JavaVersion
               node_version: !Ref NodeVersion

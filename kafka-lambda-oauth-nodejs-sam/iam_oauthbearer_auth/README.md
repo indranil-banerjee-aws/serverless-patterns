@@ -39,7 +39,7 @@ No Cognito. Four AWS IAM identities, each federated to a distinct Kafka principa
 Each interactive client **assumes** its role and mints a web-identity token (`refresh_token.sh <role>`). The token subject isn't known until the token is minted, so `admin_create_topic.sh` bootstraps the topic and ACLs over the brokers' **internal PLAINTEXT listener** (no token needed) and derives the producer/consumer principals at runtime by decoding the token `sub`.
 
 ## Deploy
-1. Deploy `KafkaBrokersClientEC2.yaml` (CloudFormation). Optionally set `OutboundIssuerUrl` (leave blank to auto-enable federation and look it up at broker boot) and `OutboundAudience` (default `kafka-cluster`). Wait for `CREATE_COMPLETE`, then a few minutes more for the brokers.
+1. Deploy `KafkaBrokersClientEC2.yaml` (CloudFormation). Optionally set `OutboundIssuerUrl` (leave blank to auto-enable federation and look it up at broker boot) and `OutboundAudience` (default `kafka-cluster`). Wait for `CREATE_COMPLETE`. The stack waits for the client instance's setup (which itself waits for the brokers) to finish, so everything is ready as soon as the stack is.
 2. Connect to the client EC2 (`KafkaClientInstance`) via EC2 Instance Connect.
 3. Deploy the Lambda + event source mapping:
    ```bash
