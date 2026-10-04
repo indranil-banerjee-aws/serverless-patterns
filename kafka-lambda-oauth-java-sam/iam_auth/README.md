@@ -40,7 +40,7 @@ sasl.client.callback.handler.class=software.amazon.msk.auth.iam.IAMClientCallbac
 MSK presents a publicly-trusted TLS certificate, so no truststore / `SERVER_ROOT_CA_CERTIFICATE` is needed.
 
 ## Deploy
-1. Deploy `MSKAndClientEC2.yaml` (CloudFormation). MSK cluster creation takes ~20-30 minutes. Wait for `CREATE_COMPLETE`, then a few minutes for the client UserData.
+1. Deploy `MSKAndClientEC2.yaml` (CloudFormation). MSK cluster creation takes ~20-30 minutes. Wait for `CREATE_COMPLETE`. The stack waits for the client instance's setup to finish (it signals CloudFormation when done), so the client is ready as soon as the stack is.
 2. Connect to the client EC2 (`KafkaClientInstance`) via EC2 Instance Connect. The client already created the topic (`cat topic_creator_output.txt`).
 3. Deploy the Lambda + event source mapping:
    ```bash
