@@ -418,6 +418,8 @@ Resources:
               BS2=$(echo "$BOOTSTRAP_SERVERS" | cut -d, -f2)
               BS3=$(echo "$BOOTSTRAP_SERVERS" | cut -d, -f3)
               sed -i "s|BOOTSTRAP_SERVER_1|$BS1|g; s|BOOTSTRAP_SERVER_2|$BS2|g; s|BOOTSTRAP_SERVER_3|$BS3|g" template.yaml
+              # <main-stack>-sam-messages: unique per language deploy, distinct from the CLI's table
+              sed -i "s|MESSAGES_TABLE_NAME|${AWS::StackName}-sam-messages|g" template.yaml
               sed -i "s|SUBNET_1|$SUBNET1|g; s|SUBNET_2|$SUBNET2|g; s|SUBNET_3|$SUBNET3|g" template.yaml
               sed -i "s|LAMBDA_SG|$MSK_SG|g; s|KAFKA_TOPIC|$KAFKA_TOPIC|g" template.yaml
               sed -i "s|NODE_VERSION|$NODE_VERSION|g" template.yaml

@@ -402,6 +402,17 @@ Resources:
                   - 'dynamodb:TagResource'
                   - 'dynamodb:ListTables'
                 Resource: '*'
+              # Read the consumer's table to check results, and let `sam local
+              # invoke` (which runs with these credentials) write to it. Covers both
+              # the SAM table (<stack>-sam-messages) and the CLI's (<stack>-messages).
+              - Effect: Allow
+                Action:
+                  - 'dynamodb:PutItem'
+                  - 'dynamodb:BatchWriteItem'
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:Query'
+                  - 'dynamodb:Scan'
+                Resource: !Sub 'arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${AWS::StackName}-*'
 
   EC2InstanceProfile:
     Type: AWS::IAM::InstanceProfile
@@ -1246,6 +1257,8 @@ Resources:
               cd "$PATTERN_DIR"
               cp template_original.yaml template.yaml
               sed -i "s|BOOTSTRAP_SERVER_1|10.0.1.10:9092|g" template.yaml
+              # <main-stack>-sam-messages: unique per language deploy, distinct from the CLI's table
+              sed -i "s|MESSAGES_TABLE_NAME|${AWS::StackName}-sam-messages|g" template.yaml
               sed -i "s|BOOTSTRAP_SERVER_2|10.0.2.10:9092|g" template.yaml
               sed -i "s|BOOTSTRAP_SERVER_3|10.0.3.10:9092|g" template.yaml
               sed -i "s|SUBNET_1|$SUBNET1|g" template.yaml
