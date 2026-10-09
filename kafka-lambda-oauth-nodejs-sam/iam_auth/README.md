@@ -67,5 +67,19 @@ aws dynamodb scan --table-name "$STACK_NAME-sam-messages" --max-items 5
 ```
 Negative tests: `bash scripts/bad_invalid_credentials.sh` and `bash scripts/bad_unauthorized_operations.sh`.
 
+## Test the function locally
+
+`sam local invoke` runs the function in a container on the client instance. A local run must not touch the real table, so test against [DynamoDB Local](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DynamoDBLocal.html) instead. When `sam local invoke` runs the function it sets `AWS_SAM_LOCAL=true`, and the handler then writes to `http://dynamodb-local:8000` rather than DynamoDB; deployed functions never see that variable.
+
+From this directory on the client EC2 instance:
+
+```bash
+bash scripts/local_dynamodb.sh          # starts DynamoDB Local and creates the table in it
+sam build
+sam local invoke --event events/event.json --docker-network sam-local
+```
+
+`local_dynamodb.sh` runs DynamoDB Local in Docker on a network called `sam-local` and creates the same table the template defines (`<stack-name>-sam-messages`). `--docker-network sam-local` puts the function's container on that network so the handler can reach it. Check what the function wrote with the `aws dynamodb scan --endpoint-url http://localhost:8000 ...` command the script prints. DynamoDB Local keeps its data in memory; `docker rm -f dynamodb-local` stops it and discards it.
+
 ## Cleanup
 Run `sam delete --stack-name "$STACK_NAME-sam"` to remove the function, event source mapping, execution role, and DynamoDB table, then delete the CloudFormation stack (deleting the MSK cluster takes a while). If you used the CLI deploy instead, run `bash scripts/teardown_lambda_cli.sh`.

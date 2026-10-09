@@ -12,9 +12,16 @@
 let _sdk;
 let _client;
 
+// `sam local invoke` sets AWS_SAM_LOCAL=true. Local runs write to DynamoDB Local
+// (started by scripts/local_dynamodb.sh) so they never touch the real table.
+const LOCAL_DYNAMODB_ENDPOINT = "http://dynamodb-local:8000";
+
 async function putItem(params) {
   if (!_sdk) _sdk = await import("@aws-sdk/client-dynamodb");
-  if (!_client) _client = new _sdk.DynamoDBClient({});
+  if (!_client) {
+    const local = process.env.AWS_SAM_LOCAL === "true";
+    _client = new _sdk.DynamoDBClient(local ? { endpoint: LOCAL_DYNAMODB_ENDPOINT } : {});
+  }
   await _client.send(new _sdk.PutItemCommand(params));
 }
 
