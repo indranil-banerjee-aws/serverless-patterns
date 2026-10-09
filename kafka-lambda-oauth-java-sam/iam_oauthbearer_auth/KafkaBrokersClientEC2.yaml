@@ -1068,7 +1068,7 @@ Resources:
               LAMBDA_SG=${lambda_sg}
               SERVERLESS_LAND_GITHUB_LOCATION="${serverless_land_github_location}"
               SERVERLESS_LAND_GITHUB_BRANCH="${serverless_land_github_branch}"
-              CFN_STACK_NAME=${stack_name}
+              LAMBDA_ROLE_ARN=${lambda_role_arn}
               BROKER_CA_SECRET_ARN=${broker_ca_secret_arn}
               CLIENT_SG=${client_sg}
               KAFKA_HOME=/home/ec2-user/kafka
@@ -1250,9 +1250,7 @@ Resources:
               sed -i "s|JAVA_VERSION|$JAVA_VERSION|g" template.yaml
               sed -i "s|BROKER_CA_SECRET_ARN|$BROKER_CA_SECRET_ARN|g" template.yaml
               sed -i "s|OUTBOUND_AUDIENCE|$OUTBOUND_AUDIENCE|g" template.yaml
-              # IAM role names are global and capped at 64 characters
-              LAMBDA_ROLE_NAME=$(echo "$CFN_STACK_NAME-lambda-consumer-$AWS_REGION" | cut -c1-64)
-              sed -i "s|LAMBDA_ROLE_NAME|$LAMBDA_ROLE_NAME|g" template.yaml
+              sed -i "s|LAMBDA_ROLE_ARN|$LAMBDA_ROLE_ARN|g" template.yaml
 
               chown -R ec2-user:ec2-user /home/ec2-user
 
@@ -1276,10 +1274,10 @@ Resources:
                 echo "bootstrap attempt $i failed; retrying in 20s..."; sleep 20
               done
 
-              # Authorize the Lambda poller. Its token's sub is the execution role ARN,
-              # which the SAM template creates with this fixed name; the ACL can exist
-              # before the role does.
-              POLLER_PRINCIPAL="User:arn:aws:iam::$ACCOUNT_ID:role/$LAMBDA_ROLE_NAME"
+              # Authorize the Lambda poller. Its token's sub is its execution role's ARN,
+              # and this stack creates that role (LambdaConsumerRole), so the ARN is
+              # known before `sam deploy` runs.
+              POLLER_PRINCIPAL="User:$LAMBDA_ROLE_ARN"
               sudo -u ec2-user "$KAFKA_HOME"/bin/kafka-acls.sh --bootstrap-server "$INTERNAL_BOOTSTRAP" --add --allow-principal "$POLLER_PRINCIPAL" --operation Read --topic "$KAFKA_TOPIC" || true
               sudo -u ec2-user "$KAFKA_HOME"/bin/kafka-acls.sh --bootstrap-server "$INTERNAL_BOOTSTRAP" --add --allow-principal "$POLLER_PRINCIPAL" --operation Read --group '*' || true
               if [ "$BOOTSTRAP_OK" != true ]; then
@@ -1313,13 +1311,54 @@ Resources:
               client_sg: !GetAtt KafkaClientInstanceSecurityGroup.GroupId
               serverless_land_github_location: !Ref ServerlessLandGithubLocation
               serverless_land_github_branch: !Ref ServerlessLandGithubBranch
-              stack_name: !Ref 'AWS::StackName'
+              lambda_role_arn: !GetAtt LambdaConsumerRole.Arn
               broker_ca_secret_arn: !Ref BrokerCASecret
 
   # Broker CA trust anchor for the Lambda event source mapping
   # (SERVER_ROOT_CA_CERTIFICATE). The brokers generate their certificate at boot,
   # so this starts with a placeholder and the client instance writes the real PEM
   # into the "certificate" field. Owned by this stack, so it's deleted with it.
+  # Execution role for the Lambda consumer that `sam deploy` creates on the client.
+  # The poller's web identity token carries this role's ARN as its sub, and the
+  # brokers authorize that ARN through Kafka ACLs, so the role lives here: the client
+  # learns the ARN at boot and grants the ACLs before the function exists. The SAM
+  # template attaches the DynamoDB write permission, since it creates the table.
+  LambdaConsumerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub "arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+      Policies:
+        - PolicyName: KafkaEventSourceAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: EventSourceMappingENIs
+                Effect: Allow
+                Action:
+                  - ec2:CreateNetworkInterface
+                  - ec2:DescribeNetworkInterfaces
+                  - ec2:DeleteNetworkInterface
+                  - ec2:DescribeSecurityGroups
+                  - ec2:DescribeSubnets
+                  - ec2:DescribeVpcs
+                Resource: '*'
+              - Sid: MintWebIdentityToken
+                Effect: Allow
+                Action: sts:GetWebIdentityToken
+                Resource: '*'
+              - Sid: ReadBrokerCA
+                Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource: !Ref BrokerCASecret
+
   BrokerCASecret:
     Type: AWS::SecretsManager::Secret
     Properties:
@@ -1340,6 +1379,9 @@ Resources:
       SubnetId: !Ref PublicSubnetOne
 
 Outputs:
+  LambdaConsumerRoleArn:
+    Description: Execution role for the SAM-deployed Lambda consumer; the Kafka principal the brokers authorize
+    Value: !GetAtt LambdaConsumerRole.Arn
   VPCId:
     Description: The ID of the VPC created
     Value: !Ref 'VPC'

@@ -22,7 +22,7 @@ The `<uuid>` is account-specific. Enable federation with `aws iam enable-outboun
 - `kafka_event_consumer_function/` - the Java consumer (writes to DynamoDB).
 - `kafka_json_apps/` - producer/consumer sample apps.
 - `scripts/` - `refresh_token.sh` (mints a web-identity token per role), `admin_create_topic.sh`, `producer_send.sh`, `consumer_receive.sh`, and negative tests.
-- `template_original.yaml` - SAM template for the function, its `IAM_OAUTHBEARER_AUTH` event source mapping, its execution role, and the DynamoDB table. The client's UserData writes `template.yaml` from it with this environment's values.
+- `template_original.yaml` - SAM template for the function, its `IAM_OAUTHBEARER_AUTH` event source mapping, and the DynamoDB table. The client's UserData writes `template.yaml` from it with this environment's values.
 - `scripts/deploy_lambda_oauth_cli.sh` - deploys the Lambda + `IAM_OAUTHBEARER_AUTH` event source via the AWS CLI.
 - `KafkaBrokersClientEC2.yaml` - CloudFormation: the 3-broker cluster, three IAM client roles, and the client EC2 machine.
 
@@ -41,17 +41,17 @@ Each interactive client **assumes** its role and mints a web-identity token (`re
 ## Deploy
 1. Deploy `KafkaBrokersClientEC2.yaml` (CloudFormation). Optionally set `OutboundIssuerUrl` (leave blank to auto-enable federation and look it up at broker boot) and `OutboundAudience` (default `kafka-cluster`). Wait for `CREATE_COMPLETE`. The stack waits for the client instance's setup (which itself waits for the brokers) to finish, so everything is ready as soon as the stack is.
 2. Connect to the client EC2 (`KafkaClientInstance`) via EC2 Instance Connect.
-3. Build and deploy the Lambda function and its event source mapping with AWS SAM. The client's UserData already wrote `template.yaml`, filling in the broker endpoints, subnets, security group, topic, audience, the broker CA secret (`<stack-name>-broker-ca`, owned by the CloudFormation stack), and the execution role's name, so accept the defaults at every prompt:
+3. Build and deploy the Lambda function and its event source mapping with AWS SAM. The client's UserData already wrote `template.yaml`, filling in the broker endpoints, subnets, security group, topic, audience, the broker CA secret (`<stack-name>-broker-ca`), and the execution role's ARN, both owned by the CloudFormation stack, so accept the defaults at every prompt:
    ```bash
    # AWS_REGION and STACK_NAME are read from ~/kafka_oauth.env, written at boot
    cd ~/serverless-patterns/kafka-lambda-oauth-java-sam/iam_oauthbearer_auth
    sam build
-   sam deploy --capabilities CAPABILITY_NAMED_IAM --no-confirm-changeset --no-disable-rollback --region "$AWS_REGION" --stack-name "$STACK_NAME-sam" --guided
+   sam deploy --capabilities CAPABILITY_IAM --no-confirm-changeset --no-disable-rollback --region "$AWS_REGION" --stack-name "$STACK_NAME-sam" --guided
    ```
 
-   The template creates the DynamoDB table (`<stack-name>-sam-messages`), an execution role with `sts:GetWebIdentityToken`, and the event source mapping with `IAM_OAUTHBEARER_AUTH` + `OAUTHBEARER_AUDIENCE` + `SERVER_ROOT_CA_CERTIFICATE`.
+   The template creates the DynamoDB table (`<stack-name>-sam-messages`) and the event source mapping with `IAM_OAUTHBEARER_AUTH` + `OAUTHBEARER_AUDIENCE` + `SERVER_ROOT_CA_CERTIFICATE`.
 
-   The role has a fixed name, `<stack-name>-lambda-consumer-<region>`, which is why the command passes `CAPABILITY_NAMED_IAM`. The poller's token `sub` is that role's ARN, and the brokers authorize it through Kafka ACLs; with the name fixed, the client grants those ACLs at boot, before the role exists.
+   The function runs as `LambdaConsumerRole` from the CloudFormation stack, which holds `sts:GetWebIdentityToken` and the network and secret permissions; the SAM template only attaches DynamoDB write access to it. The poller's token `sub` is that role's ARN, and the brokers authorize it through Kafka ACLs, so the role is created up front and the client grants those ACLs at boot. A plain `sam deploy --guided` works, because the template creates no named IAM resources.
 
    SAM support for these authentication types arrived in SAM translator 1.114.0. CloudFormation runs that transform during `sam deploy`, so build and deploy work today, but the SAM CLI still bundles an older translator: skip `sam validate` until it catches up, because it rejects them.
 
@@ -78,4 +78,4 @@ AWS Outbound web-identity tokens are short-lived (**~300 seconds**), and authent
 - `refresh_token.sh` writes a **static** token, and the Strimzi client callback does not refresh a pre-supplied token, so a `consumer_receive.sh` left running **longer than ~5 minutes will drop** with an auth error. Short produce/consume runs each mint a fresh token, so they're unaffected — just re-run for another session.
 
 ## Cleanup
-Run `sam delete --stack-name "$STACK_NAME-sam"` to remove the function, event source mapping, execution role, and DynamoDB table, then delete the CloudFormation stack, which also deletes the broker-CA secret. If you used the CLI deploy instead, run `bash scripts/teardown_lambda_cli.sh`. Optionally remove the S3 Kafka/cert cache bucket (`kafka-*-cache-<account>-<region>`).
+Run `sam delete --stack-name "$STACK_NAME-sam"` to remove the function, event source mapping, and DynamoDB table, then delete the CloudFormation stack, which also deletes the execution role and the broker-CA secret. If you used the CLI deploy instead, run `bash scripts/teardown_lambda_cli.sh`. Optionally remove the S3 Kafka/cert cache bucket (`kafka-*-cache-<account>-<region>`).
