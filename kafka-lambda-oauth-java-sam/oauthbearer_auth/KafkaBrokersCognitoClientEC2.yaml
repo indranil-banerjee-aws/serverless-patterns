@@ -1104,6 +1104,8 @@ Resources:
               LAMBDA_SG=${lambda_sg}
               SERVERLESS_LAND_GITHUB_LOCATION="${serverless_land_github_location}"
               SERVERLESS_LAND_GITHUB_BRANCH="${serverless_land_github_branch}"
+              POLLER_OAUTH_SECRET_ARN=${poller_oauth_secret_arn}
+              BROKER_CA_SECRET_ARN=${broker_ca_secret_arn}
               CLIENT_SG=${client_sg}
               KAFKA_HOME=/home/ec2-user/kafka
               KAFKA_JSON_APPS_JAR=/home/ec2-user/kafka-json-apps.jar
@@ -1266,6 +1268,13 @@ Resources:
               # Make the same env available in interactive login shells too
               echo "source /home/ec2-user/kafka_oauth.env" >> /home/ec2-user/.bash_profile
 
+              # Write the broker certificate into the stack's CA secret for the
+              # Lambda event source mapping (SERVER_ROOT_CA_CERTIFICATE).
+              python3 -c 'import json,sys;print(json.dumps({"certificate":open(sys.argv[1]).read()}))' /home/ec2-user/kafka.crt > /tmp/broker-ca.json
+              aws secretsmanager put-secret-value --region "$AWS_REGION" --secret-id "$BROKER_CA_SECRET_ARN" --secret-string file:///tmp/broker-ca.json \
+                || echo "WARN: could not write the broker CA secret; sam deploy will fail until it holds kafka.crt"
+              rm -f /tmp/broker-ca.json
+
               # Substitute the SAM template placeholders
               cd "$PATTERN_DIR"
               cp template_original.yaml template.yaml
@@ -1278,6 +1287,9 @@ Resources:
               sed -i "s|LAMBDA_SG|$LAMBDA_SG|g" template.yaml
               sed -i "s|KAFKA_TOPIC|$KAFKA_TOPIC|g" template.yaml
               sed -i "s|JAVA_VERSION|$JAVA_VERSION|g" template.yaml
+              sed -i "s|BROKER_CA_SECRET_ARN|$BROKER_CA_SECRET_ARN|g" template.yaml
+              sed -i "s|OAUTH_SECRET_ARN|$POLLER_OAUTH_SECRET_ARN|g" template.yaml
+              sed -i "s|OAUTH_SCOPE|kafka/consume|g" template.yaml
 
               # Set permanent passwords for the three Cognito role users from Secrets Manager
               set_password() {
@@ -1345,6 +1357,31 @@ Resources:
               client_sg: !GetAtt KafkaClientInstanceSecurityGroup.GroupId
               serverless_land_github_location: !Ref ServerlessLandGithubLocation
               serverless_land_github_branch: !Ref ServerlessLandGithubBranch
+              poller_oauth_secret_arn: !Ref PollerOAuthSecret
+              broker_ca_secret_arn: !Ref BrokerCASecret
+
+  # Broker CA trust anchor for the Lambda event source mapping
+  # (SERVER_ROOT_CA_CERTIFICATE). The brokers generate their certificate at boot,
+  # so this starts with a placeholder and the client instance writes the real PEM
+  # into the "certificate" field. Owned by this stack, so it's deleted with it.
+  BrokerCASecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub "${AWS::StackName}-broker-ca"
+      Description: Kafka broker CA certificate (PEM) for the Lambda event source mapping
+      SecretString: '{"certificate":"written-by-the-client-instance-at-boot"}'
+
+  # Client-credentials secret for the Lambda event source mapping
+  # (OAUTHBEARER_AUTH). Lambda requires exactly these three keys.
+  PollerOAuthSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub "${AWS::StackName}-poller-oauth-creds"
+      Description: Cognito client credentials the Lambda Kafka poller uses
+      SecretString: !Sub
+        - '{"oauthClientId":"${id}","oauthClientSecret":"${secret}","oauthTokenEndpointUrl":"https://${AWS::StackName}-${AWS::AccountId}.auth.${AWS::Region}.amazoncognito.com/oauth2/token"}'
+        - id: !Ref CognitoPollerClient
+          secret: !GetAtt CognitoPollerClient.ClientSecret
 
   EC2InstanceEndpoint:
     Type: AWS::EC2::InstanceConnectEndpoint
