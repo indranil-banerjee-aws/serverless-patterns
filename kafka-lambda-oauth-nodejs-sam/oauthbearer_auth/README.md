@@ -14,7 +14,7 @@ Files and folders:
 - `kafka_json_apps` - Standalone Node.js producer/consumer sample apps (Faker JSON, kafkajs) used from the client EC2 instance.
 - `scripts` - Helper scripts installed on the client EC2 instance (token refresh, admin/producer/consumer, negative tests).
 - `events` - Invocation events you can use to invoke the function locally.
-- `template_original.yaml` - A SAM template for the Lambda function + DynamoDB table (see the note on SAM/OAuth support below).
+- `template_original.yaml` - SAM template for the function, its `OAUTHBEARER_AUTH` event source mapping, and the DynamoDB table. The client's UserData writes `template.yaml` from it with this environment's values.
 - `scripts/deploy_lambda_oauth_cli.sh` - Deploys the Lambda function and its self-managed Kafka OAUTHBEARER event source via the AWS CLI.
 - `KafkaBrokersCognitoClientEC2.yaml` - A CloudFormation template that deploys the self-managed Kafka cluster (3 broker EC2 instances), an Amazon Cognito User Pool, and a client EC2 machine with all pre-requisites installed, so you can build, deploy and test the Lambda function.
 
@@ -85,27 +85,41 @@ From `/home/ec2-user` on the client EC2 instance:
 
 ## Deploy the Lambda consumer
 
-### A note on SAM and OAUTHBEARER
+### Deploy with AWS SAM
 
-At the time of publishing, **AWS SAM does not support the `OAUTHBEARER` auth type** for self-managed Apache Kafka event sources, so `template_original.yaml` (which the CloudFormation UserData substitutes into `template.yaml`) is provided as scaffolding: it defines the function and the DynamoDB table and includes a placeholder authentication entry, but `sam deploy` will not create a working OAUTHBEARER event source mapping. Use the AWS CLI instead (below). The OAuth self-managed Kafka event source **does** work through the CLI.
+The client's UserData already wrote `template.yaml` from `template_original.yaml`, filling in the broker endpoints, subnets, security group, topic, and the ARNs of two secrets the CloudFormation stack owns:
 
-### Deploy via the AWS CLI (OAuth)
+* `<stack-name>-poller-oauth-creds` holds the poller app client's `oauthClientId`, `oauthClientSecret` and `oauthTokenEndpointUrl`, built from the Cognito resources at stack creation.
+* `<stack-name>-broker-ca` holds the brokers' self-signed certificate in its `certificate` field. The client writes it at boot from `/home/ec2-user/kafka.crt`.
 
-`deploy_lambda_oauth_cli.sh` deploys the same Node.js consumer with a self-managed Kafka event source using `aws lambda create-event-source-mapping`, wiring `OAUTHBEARER_AUTH` (client-credentials secret), `OAUTHBEARER_SCOPE`, `SERVER_ROOT_CA_CERTIFICATE`, the VPC subnet/SG, and the required `provisioned-poller-config`. It also creates the **DynamoDB table** (`<stack-name>-messages`), sets the `DYNAMODB_TABLE_NAME` environment variable, and grants the function `dynamodb:PutItem`. It auto-discovers the VPC config and the Cognito `client_credentials` app client from the stack, fetches the app-client secret, and uses the broker cert the client fetched (`/home/ec2-user/kafka.crt`) as the TLS trust anchor.
-
-Run it from this directory on the client EC2 instance:
+Build and deploy from this directory on the client EC2 instance, accepting the defaults at every prompt:
 
 ```bash
 # AWS_REGION and STACK_NAME are read from ~/kafka_oauth.env, written at boot
 cd ~/serverless-patterns/kafka-lambda-oauth-nodejs-sam/oauthbearer_auth
-bash scripts/deploy_lambda_oauth_cli.sh
+sam build
+sam deploy --capabilities CAPABILITY_IAM --no-confirm-changeset --no-disable-rollback --region "$AWS_REGION" --stack-name "$STACK_NAME-sam" --guided
 ```
+
+The template creates the DynamoDB table (`<stack-name>-sam-messages`) and the event source mapping with `OAUTHBEARER_AUTH`, `OAUTHBEARER_SCOPE` (`kafka/consume`), `SERVER_ROOT_CA_CERTIFICATE`, and the VPC subnets and security group. SAM grants the execution role `secretsmanager:GetSecretValue` on both secrets and the network-interface permissions on its own.
+
+SAM support for these authentication types arrived in SAM translator 1.114.0. CloudFormation runs that transform during `sam deploy`, so build and deploy work today, but the SAM CLI still bundles an older translator: skip `sam validate` until it catches up, because it rejects them.
 
 Wait for the event source mapping to reach `Enabled`:
 
 ```bash
-aws lambda list-event-source-mappings --function-name "$STACK_NAME-consumer" \
+FN=$(aws cloudformation describe-stacks --stack-name "$STACK_NAME-sam" \
+  --query "Stacks[0].Outputs[?OutputKey=='LambdaKafkaConsumerNodejsFunction'].OutputValue" --output text)
+aws lambda list-event-source-mappings --function-name "$FN" \
   --query 'EventSourceMappings[].[UUID,State,LastProcessingResult]' --output table
+```
+
+### Alternative: deploy with the AWS CLI
+
+`deploy_lambda_oauth_cli.sh` deploys the same consumer with `aws lambda create-event-source-mapping`, under its own names (`<stack-name>-consumer`, `<stack-name>-messages`) and with its own copies of the two secrets (`<stack-name>-consumer-oauth-creds`, `<stack-name>-consumer-broker-ca`). The commands below use the SAM names.
+
+```bash
+bash scripts/deploy_lambda_oauth_cli.sh
 ```
 
 ## Test the sample application end to end
@@ -117,25 +131,20 @@ bash scripts/producer_send.sh $KAFKA_TOPIC 10
 ```
 
 * **CloudWatch Logs**: the function logs each Kafka message (topic, partition, offset, timestamp, timestampType, decoded key/value). A single invocation receives a batch of messages as a map keyed by `topic-partition`; the key and value of each message are base64-encoded and are decoded by the handler.
-* **DynamoDB**: check the `<stack-name>-messages` table - each item is keyed by `topicPartition` (partition key) + `offset` (sort key) and carries the Kafka metadata plus each field of the JSON payload:
+* **DynamoDB**: check the `<stack-name>-sam-messages` table - each item is keyed by `topicPartition` (partition key) + `offset` (sort key) and carries the Kafka metadata plus each field of the JSON payload:
   ```bash
-  aws dynamodb scan --table-name "$STACK_NAME-messages" --max-items 5
+  aws dynamodb scan --table-name "$STACK_NAME-sam-messages" --max-items 5
   ```
-
-Either send at least 10 messages or wait 300 seconds (see `BatchSize` and `MaximumBatchingWindowInSeconds`).
 
 ## Cleanup
 
-1. Delete the Lambda event source mapping and function, and the DynamoDB table:
+1. Delete the SAM stack, which removes the function, event source mapping, execution role, and DynamoDB table:
    ```bash
-   UUID=$(aws lambda list-event-source-mappings --function-name "$STACK_NAME-consumer" --query 'EventSourceMappings[0].UUID' --output text)
-   aws lambda delete-event-source-mapping --uuid "$UUID"
-   aws lambda delete-function --function-name "$STACK_NAME-consumer"
-   aws dynamodb delete-table --table-name "$STACK_NAME-messages"
+   sam delete --stack-name "$STACK_NAME-sam"
    ```
-   Also delete the two secrets the deploy created (`<stack-name>-consumer-oauth-creds`, `<stack-name>-consumer-broker-ca`) and the function's execution role if you no longer need them.
+   If you used the CLI deploy instead, run `bash scripts/teardown_lambda_cli.sh`.
 
-2. Delete the CloudFormation stack (Kafka brokers, Cognito User Pool, client EC2) from the console. If deletion fails, retry with Force Delete - ENIs created by the Lambda event source in the VPC can delay VPC deletion.
+2. Delete the CloudFormation stack (Kafka brokers, Cognito User Pool, client EC2, and the two secrets above) from the console. If deletion fails, retry with Force Delete - ENIs created by the Lambda event source in the VPC can delay VPC deletion.
 
 3. (Optional) Remove the Kafka download/cert cache bucket, which is created outside the stack and reused across redeploys:
    ```bash

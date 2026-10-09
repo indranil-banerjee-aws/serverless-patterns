@@ -1077,6 +1077,8 @@ Resources:
               LAMBDA_SG=${lambda_sg}
               SERVERLESS_LAND_GITHUB_LOCATION="${serverless_land_github_location}"
               SERVERLESS_LAND_GITHUB_BRANCH="${serverless_land_github_branch}"
+              CFN_STACK_NAME=${stack_name}
+              BROKER_CA_SECRET_ARN=${broker_ca_secret_arn}
               CLIENT_SG=${client_sg}
               KAFKA_HOME=/home/ec2-user/kafka
               KAFKA_JSON_APPS_DIR=/home/ec2-user/kafka_json_apps
@@ -1228,6 +1230,13 @@ Resources:
               # Make the same env available in interactive login shells too
               echo "source /home/ec2-user/kafka_oauth.env" >> /home/ec2-user/.bash_profile
 
+              # Write the broker certificate into the stack's CA secret for the
+              # Lambda event source mapping (SERVER_ROOT_CA_CERTIFICATE).
+              python3 -c 'import json,sys;print(json.dumps({"certificate":open(sys.argv[1]).read()}))' /home/ec2-user/kafka.crt > /tmp/broker-ca.json
+              aws secretsmanager put-secret-value --region "$AWS_REGION" --secret-id "$BROKER_CA_SECRET_ARN" --secret-string file:///tmp/broker-ca.json \
+                || echo "WARN: could not write the broker CA secret; sam deploy will fail until it holds kafka.crt"
+              rm -f /tmp/broker-ca.json
+
               # Substitute the SAM template placeholders
               cd "$PATTERN_DIR"
               cp template_original.yaml template.yaml
@@ -1240,6 +1249,11 @@ Resources:
               sed -i "s|LAMBDA_SG|$LAMBDA_SG|g" template.yaml
               sed -i "s|KAFKA_TOPIC|$KAFKA_TOPIC|g" template.yaml
               sed -i "s|NODE_VERSION|$NODE_VERSION|g" template.yaml
+              sed -i "s|BROKER_CA_SECRET_ARN|$BROKER_CA_SECRET_ARN|g" template.yaml
+              sed -i "s|OUTBOUND_AUDIENCE|$OUTBOUND_AUDIENCE|g" template.yaml
+              # IAM role names are global and capped at 64 characters
+              LAMBDA_ROLE_NAME=$(echo "$CFN_STACK_NAME-lambda-consumer-$AWS_REGION" | cut -c1-64)
+              sed -i "s|LAMBDA_ROLE_NAME|$LAMBDA_ROLE_NAME|g" template.yaml
 
               chown -R ec2-user:ec2-user /home/ec2-user
 
@@ -1262,6 +1276,13 @@ Resources:
                 fi
                 echo "bootstrap attempt $i failed; retrying in 20s..."; sleep 20
               done
+
+              # Authorize the Lambda poller. Its token's sub is the execution role ARN,
+              # which the SAM template creates with this fixed name; the ACL can exist
+              # before the role does.
+              POLLER_PRINCIPAL="User:arn:aws:iam::$ACCOUNT_ID:role/$LAMBDA_ROLE_NAME"
+              sudo -u ec2-user "$KAFKA_HOME"/bin/kafka-acls.sh --bootstrap-server "$INTERNAL_BOOTSTRAP" --add --allow-principal "$POLLER_PRINCIPAL" --operation Read --topic "$KAFKA_TOPIC" || true
+              sudo -u ec2-user "$KAFKA_HOME"/bin/kafka-acls.sh --bootstrap-server "$INTERNAL_BOOTSTRAP" --add --allow-principal "$POLLER_PRINCIPAL" --operation Read --group '*' || true
               if [ "$BOOTSTRAP_OK" != true ]; then
                 echo "ERROR: topic bootstrap failed after 8 attempts; see /home/ec2-user/bootstrap_acls_output.txt"; exit 1
               fi
@@ -1294,6 +1315,19 @@ Resources:
               client_sg: !GetAtt KafkaClientInstanceSecurityGroup.GroupId
               serverless_land_github_location: !Ref ServerlessLandGithubLocation
               serverless_land_github_branch: !Ref ServerlessLandGithubBranch
+              stack_name: !Ref 'AWS::StackName'
+              broker_ca_secret_arn: !Ref BrokerCASecret
+
+  # Broker CA trust anchor for the Lambda event source mapping
+  # (SERVER_ROOT_CA_CERTIFICATE). The brokers generate their certificate at boot,
+  # so this starts with a placeholder and the client instance writes the real PEM
+  # into the "certificate" field. Owned by this stack, so it's deleted with it.
+  BrokerCASecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub "${AWS::StackName}-broker-ca"
+      Description: Kafka broker CA certificate (PEM) for the Lambda event source mapping
+      SecretString: '{"certificate":"written-by-the-client-instance-at-boot"}'
 
   EC2InstanceEndpoint:
     Type: AWS::EC2::InstanceConnectEndpoint
