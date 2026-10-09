@@ -405,6 +405,9 @@ Resources:
               # Substitute the SAM template placeholders
               cd "$PATTERN_DIR"
               cp template_original.yaml template.yaml
+              # kafka-cluster IAM resources are named after the cluster: arn:...:cluster/<name>/<uuid>
+              MSK_CLUSTER_NAME=$(echo "$MSK_CLUSTER_ARN" | cut -d/ -f2)
+              sed -i "s|MSK_CLUSTER_NAME|$MSK_CLUSTER_NAME|g" template.yaml
               BS1=$(echo "$BOOTSTRAP_SERVERS" | cut -d, -f1)
               BS2=$(echo "$BOOTSTRAP_SERVERS" | cut -d, -f2)
               BS3=$(echo "$BOOTSTRAP_SERVERS" | cut -d, -f3)

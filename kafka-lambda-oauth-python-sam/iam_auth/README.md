@@ -18,7 +18,7 @@ A Lambda function that consumes from an **Amazon MSK cluster with IAM authentica
 - `kafka_json_apps/` - Python Faker JSON producer/consumer (kafka-python + aws-msk-iam-sasl-signer-python).
 - `scripts/` - `refresh_token.sh` (writes an AWS_MSK_IAM client.properties per role), `admin_create_topic.sh`, `producer_send.sh`, `consumer_receive.sh`, and negative tests.
 - `scripts/deploy_lambda_iam_cli.sh` - deploys the Lambda + `IAM_AUTH` event source via the AWS CLI.
-- `template_original.yaml` - SAM template (function + DynamoDB table); SAM does not support this auth type, so use the CLI deploy.
+- `template_original.yaml` - SAM template for the function, its `IAM_AUTH` event source mapping, and the DynamoDB table. The client's UserData writes `template.yaml` from it with this environment's values.
 
 ## Identity & authorization model
 No Cognito, no Kafka ACLs. MSK IAM authorization is enforced by IAM policies attached to each role; the client selects its role via `awsRoleArn` in the JAAS config:
@@ -42,22 +42,30 @@ MSK presents a publicly-trusted TLS certificate, so no truststore / `SERVER_ROOT
 ## Deploy
 1. Deploy `MSKAndClientEC2.yaml` (CloudFormation). MSK cluster creation takes ~20-30 minutes. Wait for `CREATE_COMPLETE`. The stack waits for the client instance's setup to finish (it signals CloudFormation when done), so the client is ready as soon as the stack is.
 2. Connect to the client EC2 (`KafkaClientInstance`) via EC2 Instance Connect. The client already created the topic (`cat topic_creator_output.txt`).
-3. Deploy the Lambda + event source mapping:
+3. Build and deploy the Lambda function and its event source mapping with AWS SAM. The client's UserData already wrote `template.yaml`, filling in the IAM bootstrap brokers, subnets, security group, topic, and cluster name, so accept the defaults at every prompt:
    ```bash
    # AWS_REGION and STACK_NAME are read from ~/kafka_oauth.env, written at boot
    cd ~/serverless-patterns/kafka-lambda-oauth-python-sam/iam_auth
-   bash scripts/deploy_lambda_iam_cli.sh
+   sam build
+   sam deploy --capabilities CAPABILITY_IAM --no-confirm-changeset --no-disable-rollback --region "$AWS_REGION" --stack-name "$STACK_NAME-sam" --guided
    ```
-   It resolves the IAM bootstrap brokers, creates the DynamoDB table (`<stack-name>-messages`), grants the execution role `kafka-cluster` read access + `dynamodb:PutItem`, and creates the ESM with `{Type: IAM_AUTH}`.
+
+   The template creates the DynamoDB table (`<stack-name>-sam-messages`), grants the execution role `kafka-cluster` read access on the cluster, topic and group, and creates the event source mapping with `{Type: IAM_AUTH}`.
+
+   SAM support for these authentication types arrived in SAM translator 1.114.0. CloudFormation runs that transform during `sam deploy`, so build and deploy work today, but the SAM CLI still bundles an older translator: skip `sam validate` until it catches up, because it rejects them.
+
+   Alternatively, `bash scripts/deploy_lambda_iam_cli.sh` deploys the same consumer with the AWS CLI, under its own names (`<stack-name>-consumer`, `<stack-name>-messages`). The commands below use the SAM names.
 
 ## Test
 ```bash
-aws lambda list-event-source-mappings --function-name "$STACK_NAME-consumer" \
+FN=$(aws cloudformation describe-stacks --stack-name "$STACK_NAME-sam" \
+  --query "Stacks[0].Outputs[?OutputKey=='LambdaKafkaConsumerPythonFunction'].OutputValue" --output text)
+aws lambda list-event-source-mappings --function-name "$FN" \
   --query 'EventSourceMappings[].[UUID,State,LastProcessingResult]' --output table
 bash scripts/producer_send.sh $KAFKA_TOPIC 10
-aws dynamodb scan --table-name "$STACK_NAME-messages" --max-items 5
+aws dynamodb scan --table-name "$STACK_NAME-sam-messages" --max-items 5
 ```
 Negative tests: `bash scripts/bad_invalid_credentials.sh` and `bash scripts/bad_unauthorized_operations.sh`.
 
 ## Cleanup
-Delete the event source mapping and function, the DynamoDB table (`<stack-name>-messages`), and the execution role; then delete the CloudFormation stack (deleting the MSK cluster takes a while).
+Run `sam delete --stack-name "$STACK_NAME-sam"` to remove the function, event source mapping, execution role, and DynamoDB table, then delete the CloudFormation stack (deleting the MSK cluster takes a while). If you used the CLI deploy instead, run `bash scripts/teardown_lambda_cli.sh`.
