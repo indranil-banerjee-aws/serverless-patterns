@@ -20,7 +20,7 @@ Resources:
       Architectures:
         - x86_64
       MemorySize: 512
-      Role: !GetAtt ConsumerFunctionRole.Arn
+      Role: !Ref LambdaRoleArn
       Environment: # More info about Env Vars: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#environment-object
         Variables:
           # The consumer writes each message's fields + Kafka metadata to this table
@@ -65,55 +65,24 @@ Resources:
               - Type: SERVER_ROOT_CA_CERTIFICATE
                 URI: !Ref BrokerCASecretArn
 
-  # The token's sub claim is this role's ARN, and the brokers authorize that ARN
-  # through Kafka ACLs. The role has a fixed name so the client instance can grant
-  # the ACL at boot, before the role exists. Because SAM doesn't manage a role you
-  # pass in, every permission the function and poller need is listed here.
-  ConsumerFunctionRole:
-    Type: AWS::IAM::Role
+  # The execution role comes from the main CloudFormation stack (its
+  # LambdaConsumerRole), which already grants the ENI, sts:GetWebIdentityToken and
+  # broker-CA permissions. The poller's token sub is that role's ARN, and the client
+  # granted it the Kafka ACLs at boot. Only the table permission is added here,
+  # because this stack creates the table.
+  ConsumerTableWritePolicy:
+    Type: AWS::IAM::RolePolicy
     Properties:
-      RoleName: !Ref LambdaRoleName
-      AssumeRolePolicyDocument:
+      RoleName: !Select [1, !Split ["role/", !Ref LambdaRoleArn]]
+      PolicyName: !Sub "${AWS::StackName}-dynamodb-write"
+      PolicyDocument:
         Version: '2012-10-17'
         Statement:
           - Effect: Allow
-            Principal:
-              Service: lambda.amazonaws.com
-            Action: sts:AssumeRole
-      ManagedPolicyArns:
-        - !Sub "arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
-      Policies:
-        - PolicyName: KafkaEventSourceAccess
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Sid: EventSourceMappingENIs
-                Effect: Allow
-                Action:
-                  - ec2:CreateNetworkInterface
-                  - ec2:DescribeNetworkInterfaces
-                  - ec2:DeleteNetworkInterface
-                  - ec2:DescribeSecurityGroups
-                  - ec2:DescribeSubnets
-                  - ec2:DescribeVpcs
-                Resource: '*'
-              - Sid: MintWebIdentityToken
-                Effect: Allow
-                Action: sts:GetWebIdentityToken
-                Resource: '*'
-              - Sid: ReadBrokerCA
-                Effect: Allow
-                Action: secretsmanager:GetSecretValue
-                Resource: !Ref BrokerCASecretArn
-        - PolicyName: DynamoDBWrite
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - dynamodb:PutItem
-                  - dynamodb:BatchWriteItem
-                Resource: !GetAtt MessagesTable.Arn
+            Action:
+              - dynamodb:PutItem
+              - dynamodb:BatchWriteItem
+            Resource: !GetAtt MessagesTable.Arn
 
   MessagesTable:
     Type: AWS::DynamoDB::Table
@@ -176,10 +145,10 @@ Parameters:
     Type: String
     Description: Secrets Manager ARN of the secret holding the brokers' CA certificate PEM
     Default: BROKER_CA_SECRET_ARN
-  LambdaRoleName:
+  LambdaRoleArn:
     Type: String
-    Description: Name of the execution role; the brokers' ACLs name its ARN
-    Default: LAMBDA_ROLE_NAME
+    Description: Execution role ARN from the main stack; the brokers' ACLs name it
+    Default: LAMBDA_ROLE_ARN
 Outputs:
   LambdaKafkaConsumerPythonFunction:
     Description: "Kafka consumer Lambda function ARN"
@@ -187,6 +156,3 @@ Outputs:
   MessagesTableName:
     Description: "DynamoDB table the consumer writes to"
     Value: !Ref MessagesTable
-  ConsumerFunctionRoleArn:
-    Description: "Execution role ARN - the Kafka principal the brokers authorize"
-    Value: !GetAtt ConsumerFunctionRole.Arn
