@@ -8,16 +8,19 @@ EVENT = json.loads((pathlib.Path(__file__).resolve().parents[1] / "events" / "ev
 
 def test_parse_records():
     messages = app.parse_records(EVENT)
-    assert len(messages) == 2
-    assert messages[0]["topic"] == "myTopic"
-    assert messages[0]["partition"] == 0
-    assert messages[0]["offset"] == 250
-    assert messages[0]["timestamp"] == 1678072110111
+    assert len(messages) == 10
+    assert messages[0]["topic"] == "KafkaIamOAuthBearerLambdaTopic"
+    assert messages[0]["partition"] == 1
+    assert messages[0]["offset"] == 208
+    assert messages[0]["timestamp"] == 1790996330920
     assert messages[0]["timestampType"] == "CREATE_TIME"
-    assert messages[0]["decodedKey"] == "null"
-    assert messages[0]["decodedValue"] == "f"
-    assert messages[1]["offset"] == 251
-    assert messages[1]["decodedValue"] == "g"
+    assert messages[0]["decodedKey"] == "jthomas@example.org"
+    person = json.loads(messages[0]["decodedValue"])
+    assert person["firstName"] == "George"
+    assert person["lastName"] == "Yang"
+    assert person["email"] == "jthomas@example.org"
+    assert messages[1]["offset"] == 209
+    assert messages[1]["decodedKey"] == "robert96@example.org"
 
 
 def test_handler_returns_200_without_table(monkeypatch):
