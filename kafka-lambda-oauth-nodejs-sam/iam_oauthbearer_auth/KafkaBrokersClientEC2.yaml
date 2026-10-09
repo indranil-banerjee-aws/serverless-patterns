@@ -52,9 +52,9 @@ Parameters:
     Type: String
     Description: Node.js runtime for the Lambda consumer. The client instance's UserData substitutes this into the SAM template (template.yaml) in place of the NODE_VERSION placeholder.
     AllowedValues:
-      - nodejs18.x
       - nodejs20.x
       - nodejs22.x
+      - nodejs24.x
     Default: nodejs22.x
   ApacheKafkaInstallerLocation:
     Type: String
@@ -1105,10 +1105,15 @@ Resources:
               service docker start
               usermod -a -G docker ec2-user
 
-              # Node.js for the sample apps (their npm deps are installed below).
-              # Java stays installed above only for the Kafka CLI tools + Strimzi
-              # client OAuth libraries used by the admin / negative-test scripts.
-              install_pkg nodejs npm
+              # Node.js matching the Lambda runtime (NodeVersion), for `sam build` and the
+              # sample apps. AL2023 ships Node.js as namespaced nodejsNN packages and picks
+              # the active node/npm with alternatives, so install that major version and
+              # make it the active one.
+              NODE_MAJOR=$(echo "$NODE_VERSION" | sed 's/^nodejs//; s/\.x$//')
+              install_pkg "nodejs$NODE_MAJOR" "nodejs$NODE_MAJOR-npm"
+              alternatives --set node "/usr/bin/node-$NODE_MAJOR"
+              node --version
+              npm --version
 
               # AWS CLI v2
               cd /home/ec2-user
