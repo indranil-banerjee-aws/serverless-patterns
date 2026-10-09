@@ -23,7 +23,7 @@ Resources:
       Environment: # More info about Env Vars: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#environment-object
         Variables:
           # The consumer writes each message's fields + Kafka metadata to this table
-          DYNAMODB_TABLE_NAME: !Ref MessagesTable
+          DYNAMODB_TABLE_NAME: !Ref DynamoDBTableName
       Events:
         SelfManagedKafkaEvent:
           Type: SelfManagedKafka # More info about SelfManagedKafka Event https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-property-function-selfmanagedkafka.html
@@ -72,8 +72,7 @@ Resources:
   MessagesTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      # Named after the SAM stack so two languages in one account never share it
-      TableName: !Sub "${AWS::StackName}-messages"
+      TableName: !Ref DynamoDBTableName
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: topicPartition
@@ -118,6 +117,12 @@ Parameters:
     Type: String
     Description: Security group ID for the Lambda event source mapping ENIs
     Default: LAMBDA_SG
+  DynamoDBTableName:
+    Type: String
+    Description: >
+      DynamoDB table the consumer writes to. A parameter rather than a !Ref to the
+      table so that `sam local invoke` sees the real name too.
+    Default: MESSAGES_TABLE_NAME
   ConsumerGroupId:
     Type: String
     Description: Kafka consumer group the event source mapping joins
