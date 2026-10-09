@@ -16,12 +16,17 @@ import os
 
 _ddb_table = None
 
+# `sam local invoke` sets AWS_SAM_LOCAL=true. Local runs write to DynamoDB Local
+# (started by scripts/local_dynamodb.sh) so they never touch the real table.
+LOCAL_DYNAMODB_ENDPOINT = "http://dynamodb-local:8000"
+
 
 def _table(table_name):
     global _ddb_table
     if _ddb_table is None:
         import boto3
-        _ddb_table = boto3.resource("dynamodb").Table(table_name)
+        endpoint = LOCAL_DYNAMODB_ENDPOINT if os.environ.get("AWS_SAM_LOCAL") == "true" else None
+        _ddb_table = boto3.resource("dynamodb", endpoint_url=endpoint).Table(table_name)
     return _ddb_table
 
 
