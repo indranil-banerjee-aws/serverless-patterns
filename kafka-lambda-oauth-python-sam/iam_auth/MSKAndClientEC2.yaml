@@ -360,6 +360,18 @@ Resources:
               install_pkg python3-pip
               pip3 install --quiet 'kafka-python<3' faker aws-msk-iam-sasl-signer-python
 
+              # The Lambda runtime's Python, for `sam build`, which looks up the runtime
+              # name (python3.13, ...) on PATH and pip-installs with it. AL2023 ships
+              # 3.11+ as namespaced packages at /usr/bin/python3.X, already on PATH;
+              # /usr/bin/python3 stays the system 3.9, which the helper scripts and the
+              # pip3-installed client libraries above use, so leave it alone.
+              LAMBDA_PYTHON="$PYTHON3_VERSION"
+              if [ "$LAMBDA_PYTHON" != "python3.9" ]; then
+                install_pkg "$LAMBDA_PYTHON" "$LAMBDA_PYTHON-pip"
+              fi
+              "$LAMBDA_PYTHON" --version
+              "$LAMBDA_PYTHON" -m pip --version
+
               # AWS CLI v2
               cd /home/ec2-user
               curl -s "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o awscliv2.zip
