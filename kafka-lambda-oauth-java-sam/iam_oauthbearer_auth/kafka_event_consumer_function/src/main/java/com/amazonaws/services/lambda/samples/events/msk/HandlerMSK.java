@@ -20,6 +20,7 @@ import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.lambda.runtime.events.KafkaEvent;
 import com.amazonaws.services.lambda.runtime.events.KafkaEvent.KafkaEventRecord;
 
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
@@ -44,10 +45,17 @@ public class HandlerMSK implements RequestHandler<KafkaEvent, String>{
 	// variable. When it is not set (e.g. local unit tests) DynamoDB is skipped.
 	private static final String TABLE_NAME = System.getenv("DYNAMODB_TABLE_NAME");
 	private static DynamoDbClient ddbClient;
+	// `sam local invoke` sets AWS_SAM_LOCAL=true. Local runs write to DynamoDB Local
+	// (started by scripts/local_dynamodb.sh) so they never touch the real table.
+	private static final String LOCAL_DYNAMODB_ENDPOINT = "http://dynamodb-local:8000";
 
 	private static synchronized DynamoDbClient ddb() {
 		if (ddbClient == null) {
-			ddbClient = DynamoDbClient.create();
+			if ("true".equals(System.getenv("AWS_SAM_LOCAL"))) {
+				ddbClient = DynamoDbClient.builder().endpointOverride(URI.create(LOCAL_DYNAMODB_ENDPOINT)).build();
+			} else {
+				ddbClient = DynamoDbClient.create();
+			}
 		}
 		return ddbClient;
 	}
