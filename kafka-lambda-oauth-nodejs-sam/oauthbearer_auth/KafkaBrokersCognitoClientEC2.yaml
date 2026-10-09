@@ -1250,7 +1250,9 @@ Resources:
               # Clone only this pattern's folder (Node.js apps + scripts + SAM template)
               cd /home/ec2-user
               git clone --depth 1 --filter=blob:none --sparse --branch "$SERVERLESS_LAND_GITHUB_BRANCH" "$SERVERLESS_LAND_GITHUB_LOCATION" serverless-patterns
-              git -C serverless-patterns sparse-checkout set kafka-lambda-oauth-nodejs-sam/oauthbearer_auth
+              # Non-cone mode checks out only this folder; the default cone mode would
+              # also check out every file at the repository root.
+              git -C serverless-patterns sparse-checkout set --no-cone '/kafka-lambda-oauth-nodejs-sam/oauthbearer_auth/'
               PATTERN_DIR=/home/ec2-user/serverless-patterns/kafka-lambda-oauth-nodejs-sam/oauthbearer_auth
 
               # Install the producer/consumer JSON apps (Node.js) and scripts
