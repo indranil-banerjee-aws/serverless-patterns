@@ -152,11 +152,15 @@ sam local invoke --event events/event.json --docker-network sam-local
 
 ## Cleanup
 
-1. Delete the SAM stack, which removes the function, event source mapping, execution role, and DynamoDB table:
-   ```bash
-   sam delete --stack-name "$STACK_NAME-sam"
-   ```
-   If you used the CLI deploy instead, run `bash scripts/teardown_lambda_cli.sh`.
+1. Delete the Lambda function the same way you created it. `sam delete` only removes what is in the SAM stack, and the teardown script only removes what the CLI script created, so use the one that matches your deploy:
+   * **Deployed with SAM** (`sam deploy`): `sam delete` removes the function, its event source mapping, its execution role, and the DynamoDB table. Use the stack name you gave `sam deploy` if it wasn't `"$STACK_NAME-sam"`.
+     ```bash
+     sam delete --stack-name "$STACK_NAME-sam"
+     ```
+   * **Deployed with the CLI script** (`scripts/deploy_lambda_oauth_cli.sh`): the teardown script removes the function, its event source mapping, its execution role, the DynamoDB table, and the two secrets it created (`<stack-name>-consumer-oauth-creds`, `<stack-name>-consumer-broker-ca`).
+     ```bash
+     bash scripts/teardown_lambda_cli.sh
+     ```
 
 2. Delete the CloudFormation stack (Kafka brokers, Cognito User Pool, client EC2, and the two secrets above) from the console. If deletion fails, retry with Force Delete - ENIs created by the Lambda event source in the VPC can delay VPC deletion.
 

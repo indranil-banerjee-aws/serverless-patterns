@@ -1,8 +1,6 @@
 # kafka-lambda-oauth-java-sam / iam_oauthbearer_auth
 # Java AWS Lambda consumer for a self-managed Apache Kafka cluster with IAM Outbound (SASL/OAUTHBEARER) authentication
 
-> **Under development.** This variant uses the AWS Lambda self-managed Kafka **`IAM_OAUTHBEARER_AUTH`** ("IAM Outbound") event-source auth type, which is not yet generally available. A few pieces — the `sts:GetWebIdentityToken` CLI shape, the token claims, and the AWS STS OIDC issuer discovery — are scaffolding that may change as the feature is finalized. The sibling [`oauthbearer_auth`](../oauthbearer_auth) variant (Cognito) is the fully verified reference.
-
 This Lambda function consumes from a **self-managed Apache Kafka** cluster (3 brokers on EC2, KRaft) that authenticates clients with **SASL/OAUTHBEARER**. What differs from the Cognito variant is the token: here it is an **AWS IAM Outbound Identity Federation web-identity (OIDC) token**, not a token from an external IdP. There is **no Cognito/Keycloak** and **no client secret** — every identity is an AWS IAM role, federated outward as an OIDC token that the brokers validate against the **AWS STS OIDC JWKS** endpoint. The function parses each Kafka message and writes its fields plus Kafka metadata to Amazon DynamoDB.
 
 ## What "IAM Outbound" is
@@ -71,7 +69,7 @@ Negative tests: `bash scripts/bad_invalid_credentials.sh` and `bash scripts/bad_
 ## Known limitation: 5-minute token lifetime
 
 AWS Outbound web-identity tokens are short-lived (**~300 seconds**), and authentication is validated per token, so:
-- The Lambda `IAM_OAUTHBEARER_AUTH` poller must re-mint a token every <5 min. If a refresh gap occurs (this is an under-development feature), the mapping can trip to `Disabled` with `LastProcessingResult: SASL authentication failed`. Re-enable it to recover:
+- The Lambda `IAM_OAUTHBEARER_AUTH` poller must re-mint a token every <5 min. If a refresh gap occurs, the mapping can trip to `Disabled` with `LastProcessingResult: SASL authentication failed`. Re-enable it to recover:
   ```bash
   aws lambda update-event-source-mapping --uuid <uuid> --enabled
   ```
@@ -92,4 +90,17 @@ sam local invoke --event events/event.json --docker-network sam-local
 `local_dynamodb.sh` runs DynamoDB Local in Docker on a network called `sam-local` and creates the same table the template defines (`<stack-name>-sam-messages`). `--docker-network sam-local` puts the function's container on that network so the handler can reach it. Check what the function wrote with the `aws dynamodb scan --endpoint-url http://localhost:8000 ...` command the script prints. DynamoDB Local keeps its data in memory; `docker rm -f dynamodb-local` stops it and discards it.
 
 ## Cleanup
-Run `sam delete --stack-name "$STACK_NAME-sam"` to remove the function, event source mapping, and DynamoDB table, then delete the CloudFormation stack, which also deletes the execution role and the broker-CA secret. If you used the CLI deploy instead, run `bash scripts/teardown_lambda_cli.sh`. Optionally remove the S3 Kafka/cert cache bucket (`kafka-*-cache-<account>-<region>`).
+
+1. Delete the Lambda function the same way you created it. `sam delete` only removes what is in the SAM stack, and the teardown script only removes what the CLI script created, so use the one that matches your deploy:
+   * **Deployed with SAM** (`sam deploy`): `sam delete` removes the function, its event source mapping, and the DynamoDB table. Its execution role and the broker-CA secret belong to the CloudFormation stack and go in step 2. Use the stack name you gave `sam deploy` if it wasn't `"$STACK_NAME-sam"`.
+     ```bash
+     sam delete --stack-name "$STACK_NAME-sam"
+     ```
+   * **Deployed with the CLI script** (`scripts/deploy_lambda_oauth_cli.sh`): the teardown script removes the function, its event source mapping, its execution role, the DynamoDB table, and the broker-CA secret it created.
+     ```bash
+     bash scripts/teardown_lambda_cli.sh
+     ```
+
+2. Delete the CloudFormation stack, which also deletes the SAM function's execution role and the broker-CA secret.
+
+3. (Optional) Remove the S3 Kafka/cert cache bucket (`kafka-*-cache-<account>-<region>`), which is created outside the stack and reused across redeploys.
