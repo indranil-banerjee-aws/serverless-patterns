@@ -143,12 +143,12 @@ bash scripts/producer_send.sh $KAFKA_TOPIC 10
 From this directory on the client EC2 instance:
 
 ```bash
-bash scripts/local_dynamodb.sh          # starts DynamoDB Local and creates the table in it
+bash scripts/local_dynamodb.sh          # starts DynamoDB Local, creates the table, configures sam local
 sam build
-sam local invoke --event events/event.json --docker-network sam-local
+sam local invoke
 ```
 
-`local_dynamodb.sh` runs DynamoDB Local in Docker on a network called `sam-local` and creates the same table the template defines (`<stack-name>-sam-messages`). `--docker-network sam-local` puts the function's container on that network so the handler can reach it. Check what the function wrote with the `aws dynamodb scan --endpoint-url http://localhost:8000 ...` command the script prints. DynamoDB Local keeps its data in memory; `docker rm -f dynamodb-local` stops it and discards it.
+`local_dynamodb.sh` runs DynamoDB Local in Docker on a network called `sam-local` and creates the same table the template defines (`<stack-name>-sam-messages`). It also sets `docker_network = "sam-local"` and `event = "events/event.json"` under `[default.local_invoke.parameters]` in `samconfig.toml`, so a plain `sam local invoke` puts the function's container on that network, where the handler can reach DynamoDB Local; the deploy settings in the same file are left alone. Re-run the script whenever DynamoDB Local isn't running, for example after the instance restarts. An error like `getaddrinfo ENOTFOUND dynamodb-local` means it isn't. Check what the function wrote with the `aws dynamodb scan --endpoint-url http://localhost:8000 ...` command the script prints. DynamoDB Local keeps its data in memory; `docker rm -f dynamodb-local` stops it and discards it.
 
 ## Cleanup
 
