@@ -139,5 +139,5 @@ enough of those the mapping can flip to `Disabled`. Re-enable it with:
 aws lambda update-event-source-mapping --uuid <uuid> --enabled
 ```
 
-This is a known rough edge in the preview of this auth type, not a mistake in your configuration.
+It isn't a mistake in your configuration.
 The other two patterns in this set don't have it.
