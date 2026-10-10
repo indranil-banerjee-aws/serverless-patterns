@@ -1,8 +1,6 @@
 # kafka-lambda-oauth-nodejs-sam / iam_auth
 # Node.js AWS Lambda consumer for Amazon MSK via a self-managed Kafka event source with IAM_AUTH
 
-> **Under development.** This variant uses the AWS Lambda **`IAM_AUTH`** auth type for a **self-managed** Kafka event source, which isn't generally available yet. For the fully-verified reference variant, see [`oauthbearer_auth`](../oauthbearer_auth).
-
 A Lambda function that consumes from an **Amazon MSK cluster with IAM authentication**. Instead of the native MSK event source, the cluster is declared to Lambda as a **self-managed** Kafka event source pointed at MSK's **IAM bootstrap endpoint (`:9098`)** with the **`IAM_AUTH`** auth type (see the "Kafka OAuth & IAM Testing Manual", Route B). The function parses each Kafka message and writes its fields plus Kafka metadata to Amazon DynamoDB.
 
 ## Why MSK (not the 3 EC2 brokers)
@@ -82,4 +80,15 @@ sam local invoke --event events/event.json --docker-network sam-local
 `local_dynamodb.sh` runs DynamoDB Local in Docker on a network called `sam-local` and creates the same table the template defines (`<stack-name>-sam-messages`). `--docker-network sam-local` puts the function's container on that network so the handler can reach it. Check what the function wrote with the `aws dynamodb scan --endpoint-url http://localhost:8000 ...` command the script prints. DynamoDB Local keeps its data in memory; `docker rm -f dynamodb-local` stops it and discards it.
 
 ## Cleanup
-Run `sam delete --stack-name "$STACK_NAME-sam"` to remove the function, event source mapping, execution role, and DynamoDB table, then delete the CloudFormation stack (deleting the MSK cluster takes a while). If you used the CLI deploy instead, run `bash scripts/teardown_lambda_cli.sh`.
+
+1. Delete the Lambda function the same way you created it. `sam delete` only removes what is in the SAM stack, and the teardown script only removes what the CLI script created, so use the one that matches your deploy:
+   * **Deployed with SAM** (`sam deploy`): `sam delete` removes the function, its event source mapping, its execution role, and the DynamoDB table. Use the stack name you gave `sam deploy` if it wasn't `"$STACK_NAME-sam"`.
+     ```bash
+     sam delete --stack-name "$STACK_NAME-sam"
+     ```
+   * **Deployed with the CLI script** (`scripts/deploy_lambda_iam_cli.sh`): the teardown script removes the function, its event source mapping, its execution role, and the DynamoDB table it created.
+     ```bash
+     bash scripts/teardown_lambda_cli.sh
+     ```
+
+2. Delete the CloudFormation stack. Deleting the MSK cluster takes a while.
